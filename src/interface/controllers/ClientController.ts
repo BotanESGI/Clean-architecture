@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 import { RegisterClient } from "../../application/use-cases/RegisterClient";
 import { ConfirmClientRegistration } from "../../application/use-cases/ConfirmRegistration";
+import { LoginClient } from "../../application/use-cases/LoginClient";
 
 export class ClientController {
   constructor(
     private registerClient: RegisterClient,
-    private confirmClient: ConfirmClientRegistration
+    private confirmClient: ConfirmClientRegistration,
+    private loginClient: LoginClient
   ) {}
 
   register = async (req: Request, res: Response) => {
@@ -21,5 +23,15 @@ export class ClientController {
       message: "Compte confirmé avec succès",
       account
     });
+  };
+
+  login = async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    try {
+      const token = await this.loginClient.execute(email, password);
+      res.status(200).json({ message: "Connexion réussie", token });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
   };
 }

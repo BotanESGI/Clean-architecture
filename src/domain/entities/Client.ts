@@ -42,4 +42,7 @@ export class Client {
     public addAccountId(accountId: string): void {
         this.accountIds.push(accountId);
     }
+    public getPasswordHash(): string {
+        return this.passwordHashed;
+    }
 }
