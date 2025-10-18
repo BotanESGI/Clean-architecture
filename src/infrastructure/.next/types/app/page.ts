@@ -1,8 +1,15 @@
 // File: D:\Bureau\Cours\ESGI 5\Clean architecture\clean-arch\src\infrastructure\app\page.tsx
+<<<<<<< HEAD
 import * as entry from '../../../app/page.jsx'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
 type TEntry = typeof import('../../../app/page.jsx')
+=======
+import * as entry from '../../../app/page.js'
+import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
+
+type TEntry = typeof import('../../../app/page.js')
+>>>>>>> b2388400b672c0ed6f2d29bc8342bf4618cdbff3
 
 type SegmentParams<T extends Object = any> = T extends Record<string, any>
   ? { [K in keyof T]: T[K] extends string ? string | string[] | undefined : never }
