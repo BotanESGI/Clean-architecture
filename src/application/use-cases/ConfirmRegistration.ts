@@ -1,8 +1,10 @@
 // application/use-cases/ConfirmClientRegistration.ts
+import jwt from "jsonwebtoken";
 import { ClientRepository } from "../repositories/ClientRepository";
 import { AccountRepository } from "../repositories/AccountRepository";
 import { Account } from "../../domain/entities/Account";
 import { IBAN } from "../../domain/value-objects/IBAN";
+import crypto from "crypto";
 
 export class ConfirmClientRegistration {
   constructor(
@@ -10,18 +12,30 @@ export class ConfirmClientRegistration {
     private readonly accountRepository: AccountRepository
   ) {}
 
-  async execute(clientId: string): Promise<Account> {
+  async execute(token: string): Promise<Account> {
+    let payload: any;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET!) as { clientId: string };
+    } catch (err) {
+      throw new Error("Token invalide ou expiré");
+    }
+  
+    const clientId = payload.clientId;
     const client = await this.clientRepository.findById(clientId);
     if (!client) throw new Error("Client introuvable");
-    if (client.getIsVerified() === true) throw new Error("Compte déjà confirmé");
-
+    if (client.getIsVerified()) throw new Error("Compte déjà confirmé");
+  
     client.setIsVerified(true);
     await this.clientRepository.update(client);
-
+  
     const iban = IBAN.generateFR();
     const account = new Account(crypto.randomUUID(), client.getId(), iban);
     await this.accountRepository.create(account);
-
+  
+    client.addAccountId(account.id);
+    await this.clientRepository.update(client);
+  
     return account;
   }
+  
 }

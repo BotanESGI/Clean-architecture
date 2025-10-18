@@ -15,8 +15,8 @@ export class ClientController {
   };
 
   confirm = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const account = await this.confirmClient.execute(id);
+    const { token } = req.params;
+    const account = await this.confirmClient.execute(token);
     res.status(200).json({
       message: "Compte confirmé avec succès",
       account
