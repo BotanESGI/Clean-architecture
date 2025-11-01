@@ -25,10 +25,10 @@ export class InMemoryAccountRepository implements AccountRepository {
     }
 
     async findByOwnerId(ownerId: string): Promise<Account[]> {
-        const result: Account[] = [];
-        for (const account of this.accounts.values()) {
-            if (account.ownerId === ownerId) {
-                result.push(account);
+          const result: Account[] = [];
+    for (const account of this.accounts.values()) {
+      if (account.clientId === ownerId) {
+        result.push(account);
             }
         }
         return result;
