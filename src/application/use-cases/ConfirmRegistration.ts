@@ -1,4 +1,3 @@
-// application/use-cases/ConfirmClientRegistration.ts
 import jwt from "jsonwebtoken";
 import { ClientRepository } from "../repositories/ClientRepository";
 import { AccountRepository } from "../repositories/AccountRepository";

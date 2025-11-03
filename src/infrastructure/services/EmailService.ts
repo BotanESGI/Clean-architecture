@@ -6,18 +6,26 @@ export class RealEmailService implements EmailService {
   private transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    if (host && user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host,
+        port: Number(process.env.SMTP_PORT) || 587,
+        auth: { user, pass },
+      });
+    } else {
+      // Fallback: disable real sending in dev if credentials are missing
+      this.transporter = null as any;
+      console.warn("[EmailService] SMTP credentials missing. Emails will not be sent.");
+    }
   }
 
   async sendConfirmationEmail(to: string, token: string): Promise<void> {
-    const confirmationUrl = `${process.env.APP_BASE_URL}/clients/confirm/${token}`;
+    // Send users to the frontend route /confirm/[token]
+    const frontendBase = process.env.FRONTEND_BASE_URL || "http://localhost:3001";
+    const confirmationUrl = `${frontendBase}/confirm/${token}`;
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
@@ -33,17 +41,21 @@ export class RealEmailService implements EmailService {
       </div>
     `;
 
+    if (!this.transporter) {
+      // Dev mode without SMTP: simulate success
+      console.log(`[EmailService] Simulated email to ${to}: ${confirmationUrl}`);
+      return;
+    }
+
     try {
-      const info = await this.transporter.sendMail({
+      await this.transporter.sendMail({
         from: `"Banque AVENIR" <${process.env.SMTP_USER}>`,
         to,
         subject: "Confirmez votre inscription à Banque AVENIR",
         html: htmlContent,
       });
-
     } catch (err) {
       console.error("Erreur lors de l'envoi de l'email :", err);
-      throw err;
     }
   }
 }

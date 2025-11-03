@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Body */
+body {
+  @apply bg-background text-text font-sans antialiased;
+}
+
+/* Headings */
+h1, h2, h3 {
+  @apply text-text font-bold;
+}
+
+/* Cards */
+.card { @apply bg-card rounded-xl shadow-card p-6 mb-6 border border-white/5; }
+
+/* Buttons */
+.btn-primary { @apply bg-primary text-black font-semibold py-3 px-6 rounded-xl hover:bg-secondary transition shadow-glow; }
+
+.btn-secondary { @apply bg-card text-primary border border-primary/40 py-3 px-6 rounded-xl hover:bg-primary hover:text-black transition; }
+
+/* Form inputs */
+/* Keep generic input reset minimal, specialize with .input-dark below */
+input, select, textarea { @apply rounded-lg w-full transition; }
+
+/* Dark neon input style */
+.input-dark { @apply bg-card/60 border border-white/10 text-text placeholder:text-muted/60 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition; }
+/* Minimal variant: only bottom border */
+.input-minimal { @apply bg-transparent border-0 border-b border-white/15 rounded-none px-0 py-3 focus:outline-none focus:ring-0 focus:border-primary/60; }
+
+/* Floating label field */
+.field { @apply relative; }
+.field input { @apply input-dark; }
+.field label { @apply absolute left-3 top-3 px-1 text-muted/70 bg-transparent transition-all pointer-events-none; }
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label { @apply -top-2 left-2 text-xs bg-background; }
+
+/* Links */
+a {
+  @apply text-primary hover:text-secondary transition;
+}
+
+/* Utilities for crypto theme */
+.glow-ring { box-shadow: 0 0 0 1px rgba(184,255,61,0.25), 0 0 60px rgba(184,255,61,0.08) inset; }
+.glass { backdrop-filter: blur(8px); background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.05); }
+.grid-bg { background-image: theme('backgroundImage.grid-dots'); background-size: theme('backgroundSize.grid-size'); background-position: -1px -1px; }
+.radial-fade { background-image: theme('backgroundImage.radial-fade'); }
+
+/* Hero phone placeholder */
+.phone-card { @apply relative bg-card rounded-[28px] border border-white/10 shadow-card overflow-hidden; }
+.phone-notch { @apply absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-black/60 rounded-b-2xl; }
+
+/* Alerts */
+.alert { @apply rounded-xl px-4 py-3 border text-sm; }
+.alert-error { @apply border-red-500/40 text-red-400 bg-red-500/5; }
+.alert-success { @apply border-primary/40 text-text bg-primary/5; }
+
+/* Input validation visuals */
+.input-invalid { @apply border-red-500/50 focus:border-red-500/60 focus:ring-red-500/30; }
+.helper { @apply mt-2 text-xs text-muted; }
+.helper-error { @apply mt-2 text-xs text-red-400; }

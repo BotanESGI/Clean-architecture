@@ -11,9 +11,13 @@ export class ClientController {
   ) {}
 
   register = async (req: Request, res: Response) => {
-    const { firstname, lastname, email, password } = req.body;
-    const client = await this.registerClient.execute(firstname, lastname, email, password);
-    res.status(201).json({ message: "Client enregistré, lien envoyé par email", client });
+    try {
+      const { firstname, lastname, email, password } = req.body;
+      const client = await this.registerClient.execute(firstname, lastname, email, password);
+      res.status(201).json({ message: "Client enregistré, lien envoyé par email", client });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || "Erreur lors de l'inscription" });
+    }
   };
 
   confirm = async (req: Request, res: Response) => {
