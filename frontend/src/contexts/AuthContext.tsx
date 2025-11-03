@@ -1,16 +1,42 @@
 "use client";
-import React, { createContext, useState, useContext, ReactNode } from "react";
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from "react";
 
 interface AuthContextType {
   token: string | null;
   setToken: (token: string | null) => void;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getInitialToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  return <AuthContext.Provider value={{ token, setToken }}>{children}</AuthContext.Provider>;
+  const [token, setTokenState] = useState<string | null>(getInitialToken);
+
+  const setToken = useCallback((t: string | null) => {
+    setTokenState(t);
+    try {
+      if (t) localStorage.setItem("token", t);
+      else localStorage.removeItem("token");
+    } catch {}
+  }, []);
+
+  const logout = useCallback(() => {
+    setTokenState(null);
+    try {
+      localStorage.removeItem("token");
+    } catch {}
+  }, []);
+
+  return <AuthContext.Provider value={{ token, setToken, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

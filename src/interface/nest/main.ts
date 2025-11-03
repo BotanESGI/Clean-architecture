@@ -28,7 +28,7 @@ const confirmClient = new ConfirmClientRegistration(clientRepository, accountRep
 const loginClient = new LoginClient(clientRepository);
 
 // --- Controller (Client) ---
-const clientController = new ClientController(registerClient, confirmClient, loginClient);
+const clientController = new ClientController(registerClient, confirmClient, loginClient, clientRepository);
 
 // --- Use cases (Accounts) ---
 const createAccount = new CreateAccount(accountRepository);
@@ -76,12 +76,15 @@ app.use((req, res, next) => {
 app.post("/clients/register", clientController.register);
 app.get("/clients/confirm/:token", clientController.confirm);
 app.post("/clients/login", clientController.login);
+app.get("/clients/:id", clientController.getById);
 
 // --- Routes Comptes ---
 app.post("/accounts", accountController.create);
 app.patch("/accounts/:id", accountController.rename);
 app.delete("/accounts/:id", accountController.close);
 app.get("/accounts", accountController.listByClient);
+app.get("/accounts/:clientId/balance", accountController.getBalance);
+app.get("/accounts/:clientId/iban", accountController.getIban);
 
 // --- Health endpoint ---
 app.get("/health", (_req, res) => {

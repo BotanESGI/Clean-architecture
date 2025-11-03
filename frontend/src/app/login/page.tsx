@@ -23,7 +23,7 @@ export default function LoginPage() {
       setToken(res.token);
       setMessage("Connexion réussie !");
       show("Connexion réussie", "success");
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: any) {
       const msg = err.message || "Erreur lors de la connexion";
       setMessage(msg);

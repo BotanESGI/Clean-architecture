@@ -1,6 +1,6 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-type HttpMethod = "GET" | "POST";
+type HttpMethod = "GET" | "POST" | "DELETE";
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown, token?: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -39,6 +39,24 @@ export const api = {
 
   confirm: (token: string) =>
     request<{ message: string; account: unknown }>(`/clients/confirm/${token}`, "GET"),
+
+  getBalance: (clientId: string) =>
+    request<{ accountId: string; balance: number }>(`/accounts/${clientId}/balance`, "GET"),
+
+  getIban: (clientId: string) =>
+    request<{ accountId: string; iban: string; name: string }>(`/accounts/${clientId}/iban`, "GET"),
+
+  getClient: (id: string) =>
+    request<{ id: string; firstname: string; lastname: string; email: string; verified: boolean }>(`/clients/${id}`, "GET"),
+
+  listAccounts: (clientId: string) =>
+    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number }>>(`/accounts?clientId=${clientId}`, "GET"),
+
+  createAccount: (clientId: string, name?: string, type?: "checking" | "savings") =>
+    request<{ id: string; clientId: string; iban: string; name: string; balance: number }>(`/accounts`, "POST", { clientId, name, type }),
+
+  deleteAccount: (accountId: string) =>
+    request<{ success: boolean }>(`/accounts/${accountId}`, "DELETE"),
 };
 
 export default api;
