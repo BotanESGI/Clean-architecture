@@ -1,21 +1,31 @@
-import { IBAN } from "../value-objects/IBAN";
-
 export class Account {
-    constructor(
-        public id: string,
-        public ownerId: string,
-        public iban: string,
-        public balance: number = 0
-    ) {
-        if (!IBAN.isValid(iban)) throw new Error("Invalid IBAN");
-    }
+  constructor(
+    public readonly id: string,
+    public readonly clientId: string,
+    public readonly iban: string,
+    private _name: string = "Compte courant",
+    public balance: number = 0,
+    private _isClosed: boolean = false,
+    public readonly createdAt: Date = new Date()
+  ) {}
 
-    debit(amount: number) {
-        if (this.balance < amount) throw new Error("Insufficient funds");
-        this.balance -= amount;
-    }
+  get name() {
+    return this._name;
+  }
 
-    credit(amount: number) {
-        this.balance += amount;
-    }
+  get isClosed() {
+    return this._isClosed;
+  }
+
+  rename(newName: string) {
+    if (this._isClosed) throw new Error("Compte fermé");
+    if (!newName || newName.trim().length < 2) throw new Error("Nom invalide");
+    this._name = newName.trim();
+  }
+
+  close() {
+    if (this._isClosed) throw new Error("Déjà fermé");
+    if (this.balance !== 0) throw new Error("Solde non nul");
+    this._isClosed = true;
+  }
 }
