@@ -12,16 +12,28 @@ La page d'accueil présente une interface moderne avec un thème sombre et des a
 - Des statistiques et indicateurs visuels
 - Un design responsive avec effets de glassmorphism
 
+<img width="2938" height="1680" alt="image" src="https://github.com/user-attachments/assets/7df5861c-3d83-4d68-8c7e-a39c4a5eed30" />
+<img width="2938" height="1680" alt="image" src="https://github.com/user-attachments/assets/03904765-9897-467c-89aa-fed8861397ce" />
+
+
+
 ### Page de connexion
 - Design minimaliste avec formulaire à labels flottants
 - Section informative à gauche (sur desktop)
 - Validation en temps réel avec messages d'erreur stylisés
 - Animation et transitions fluides
 
+  <img width="2938" height="1680" alt="image" src="https://github.com/user-attachments/assets/d1b72623-769a-4e24-8ad5-a85060b3f188" />
+
+
+
 ### Page d'inscription
 - Formulaire multi-champs (Prénom, Nom, Email, Mot de passe)
 - Validation côté client et serveur du mot de passe (8+ caractères, majuscule, minuscule, chiffre, caractère spécial)
 - Page de confirmation après inscription indiquant la vérification email
+
+<img width="2938" height="1680" alt="image" src="https://github.com/user-attachments/assets/9e530e08-cf20-40e4-8593-9aff03d3413c" />
+
 
 ### Dashboard client
 - **Vue d'ensemble** : Salutation personnalisée avec nom du client
@@ -34,6 +46,12 @@ La page d'accueil présente une interface moderne avec un thème sombre et des a
 - **Actions rapides** : Virement, Infos compte, Nouveau compte, Relevé
 - **Transactions récentes** : Liste avec montants colorés (rouge pour dépenses, vert pour revenus)
 - **Popup d'informations** : Modal affichant IBAN, solde, type de compte avec possibilité de copier l'IBAN
+
+<img width="2938" height="1674" alt="image" src="https://github.com/user-attachments/assets/0e714ae9-44d0-445c-91f9-0bd5a5ce0746" />
+
+<img width="2938" height="1680" alt="image" src="https://github.com/user-attachments/assets/fdaabf9d-3900-4261-bb6c-7a333174f8e7" />
+
+
 
 ## 🛠 Technologies utilisées
 
