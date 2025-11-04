@@ -1,6 +1,6 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-type HttpMethod = "GET" | "POST" | "DELETE";
+type HttpMethod = "GET" | "POST" | "DELETE" | "PATCH";
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown, token?: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -50,13 +50,22 @@ export const api = {
     request<{ id: string; firstname: string; lastname: string; email: string; verified: boolean }>(`/clients/${id}`, "GET"),
 
   listAccounts: (clientId: string) =>
-    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number }>>(`/accounts?clientId=${clientId}`, "GET"),
+    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>>(`/accounts?clientId=${clientId}`, "GET"),
 
   createAccount: (clientId: string, name?: string, type?: "checking" | "savings") =>
-    request<{ id: string; clientId: string; iban: string; name: string; balance: number }>(`/accounts`, "POST", { clientId, name, type }),
+    request<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>(`/accounts`, "POST", { clientId, name, type }),
 
   deleteAccount: (accountId: string) =>
     request<{ success: boolean }>(`/accounts/${accountId}`, "DELETE"),
+
+  listTransactions: (accountIds: string[]) =>
+    request<Array<{ id: string; accountId: string; type: string; amount: number; label: string; relatedAccountId?: string; relatedClientName?: string; createdAt: string }>>(`/transactions?accountIds=${accountIds.join(",")}`, "GET"),
+
+  transfer: (fromIban: string, toIban: string, amount: number) =>
+    request<{ success: boolean; fromBalance: number; toBalance: number }>("/transfers", "POST", { fromIban, toIban, amount }),
+
+  verifyBeneficiary: (iban: string, firstName?: string, lastName?: string) =>
+    request<{ exists: boolean; verified?: boolean; firstName?: string; lastName?: string; accountName?: string; message?: string }>("/beneficiaries/verify", "POST", { iban, firstName, lastName }),
 };
 
 export default api;
