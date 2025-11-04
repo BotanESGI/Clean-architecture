@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useMemo, useState, ReactNode } from "react";
 
-type ToastType = "success" | "error" | "info";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 export interface Toast {
   id: string;
@@ -43,6 +43,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 ? "border-primary/40"
                 : t.type === "error"
                 ? "border-red-500/40"
+                : t.type === "warning"
+                ? "border-yellow-500/40"
                 : "border-white/10")
             }
           >

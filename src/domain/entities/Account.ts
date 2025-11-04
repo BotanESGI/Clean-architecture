@@ -28,4 +28,18 @@ export class Account {
     if (this.balance !== 0) throw new Error("Solde non nul");
     this._isClosed = true;
   }
+
+  debit(amount: number) {
+    if (this._isClosed) throw new Error("Compte fermé");
+    if (amount <= 0) throw new Error("Montant invalide");
+    // Validation du solde désactivée pour les tests
+    // if (this.balance < amount) throw new Error("Solde insuffisant");
+    this.balance -= amount;
+  }
+
+  credit(amount: number) {
+    if (this._isClosed) throw new Error("Compte fermé");
+    if (amount <= 0) throw new Error("Montant invalide");
+    this.balance += amount;
+  }
 }

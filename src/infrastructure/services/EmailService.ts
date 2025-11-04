@@ -41,9 +41,17 @@ export class RealEmailService implements EmailService {
       </div>
     `;
 
+    // Toujours afficher le lien dans la console pour faciliter les tests
+    console.log("\n" + "=".repeat(80));
+    console.log("🔗 LIEN DE CONFIRMATION (copiez ce lien dans votre navigateur)");
+    console.log("=".repeat(80));
+    console.log(`Email: ${to}`);
+    console.log(`Lien: ${confirmationUrl}`);
+    console.log("=".repeat(80) + "\n");
+
     if (!this.transporter) {
-      // Dev mode without SMTP: simulate success
-      console.log(`[EmailService] Simulated email to ${to}: ${confirmationUrl}`);
+      // Dev mode without SMTP: ne pas envoyer d'email réel
+      console.warn("[EmailService] SMTP non configuré - email non envoyé");
       return;
     }
 
@@ -54,8 +62,9 @@ export class RealEmailService implements EmailService {
         subject: "Confirmez votre inscription à Banque AVENIR",
         html: htmlContent,
       });
+      console.log(`✅ Email de confirmation envoyé à ${to}`);
     } catch (err) {
-      console.error("Erreur lors de l'envoi de l'email :", err);
+      console.error("❌ Erreur lors de l'envoi de l'email :", err);
     }
   }
 }

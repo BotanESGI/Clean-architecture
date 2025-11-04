@@ -19,7 +19,15 @@ export class AccountController {
     if (!clientId) return res.status(400).json({ error: "clientId requis" });
 
     const acc = await this.createAccount.execute({ ownerId: clientId, name, type });
-    res.status(201).json(acc);
+    // Serialize account with createdAt as ISO string
+    res.status(201).json({
+      id: acc.id,
+      clientId: acc.clientId,
+      iban: acc.iban,
+      name: acc.name,
+      balance: acc.balance,
+      createdAt: acc.createdAt ? acc.createdAt.toISOString() : undefined,
+    });
   };
 
   // PATCH /accounts/:id
@@ -48,7 +56,16 @@ export class AccountController {
     if (!clientId) return res.status(400).json({ error: "clientId requis" });
 
     const accounts = await this.accountRepo.findByOwnerId(clientId);
-    res.status(200).json(accounts);
+    // Serialize accounts with createdAt as ISO string
+    const serialized = accounts.map(acc => ({
+      id: acc.id,
+      clientId: acc.clientId,
+      iban: acc.iban,
+      name: acc.name,
+      balance: acc.balance,
+      createdAt: acc.createdAt ? acc.createdAt.toISOString() : undefined,
+    }));
+    res.status(200).json(serialized);
   };
 
   // GET /accounts/:clientId/balance -> returns primary account balance
