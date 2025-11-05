@@ -1,6 +1,6 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-type HttpMethod = "GET" | "POST" | "DELETE" | "PATCH";
+type HttpMethod = "GET" | "POST" | "DELETE" | "PATCH" | "PUT";
 
 async function request<T>(path: string, method: HttpMethod, body?: unknown, token?: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -35,7 +35,7 @@ export const api = {
     request<{ message: string; client: unknown }>("/clients/register", "POST", payload),
 
   login: (payload: { email: string; password: string }) =>
-    request<{ message: string; token: string }>("/clients/login", "POST", payload),
+    request<{ message: string; token: string; role: string }>("/clients/login", "POST", payload),
 
   confirm: (token: string) =>
     request<{ message: string; account: unknown }>(`/clients/confirm/${token}`, "GET"),
@@ -66,6 +66,27 @@ export const api = {
 
   verifyBeneficiary: (iban: string, firstName?: string, lastName?: string) =>
     request<{ exists: boolean; verified?: boolean; firstName?: string; lastName?: string; accountName?: string; message?: string }>("/beneficiaries/verify", "POST", { iban, firstName, lastName }),
+
+  // Director APIs
+  director: {
+    listClients: (token: string) =>
+      request<{ clients: Array<{ id: string; firstName: string; lastName: string; email: string; isVerified: boolean; isBanned: boolean; role: string }> }>("/director/clients", "GET", undefined, token),
+    
+    createClient: (payload: { firstName: string; lastName: string; email: string; password: string }, token: string) =>
+      request<{ message: string; client: unknown; account: unknown }>("/director/clients", "POST", payload, token),
+    
+    banClient: (clientId: string, token: string) =>
+      request<{ message: string }>(`/director/clients/${clientId}/ban`, "POST", undefined, token),
+    
+    unbanClient: (clientId: string, token: string) =>
+      request<{ message: string }>(`/director/clients/${clientId}/unban`, "POST", undefined, token),
+    
+    updateClient: (clientId: string, payload: { firstName?: string; lastName?: string; email?: string }, token: string) =>
+      request<{ message: string }>(`/director/clients/${clientId}`, "PUT", payload, token),
+    
+    deleteClient: (clientId: string, token: string) =>
+      request<{ message: string }>(`/director/clients/${clientId}`, "DELETE", undefined, token),
+  },
 };
 
 export default api;

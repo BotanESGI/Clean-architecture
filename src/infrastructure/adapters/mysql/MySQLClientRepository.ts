@@ -30,6 +30,15 @@ export class MySQLClientRepository implements ClientRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  async findAll(): Promise<Client[]> {
+    const entities = await this.repo.find();
+    return entities.map(e => this.toDomain(e));
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
+
   private toEntity(client: Client): ClientEntity {
     const entity = new ClientEntity();
     entity.id = client.getId();
@@ -39,6 +48,8 @@ export class MySQLClientRepository implements ClientRepository {
     entity.passwordHashed = client.getPasswordHash();
     entity.isVerified = client.getIsVerified();
     entity.accountIds = client.getAccountIds().length > 0 ? client.getAccountIds() : undefined;
+    entity.role = client.getRole();
+    entity.isBanned = client.getIsBanned();
     return entity;
   }
 
@@ -50,7 +61,9 @@ export class MySQLClientRepository implements ClientRepository {
       entity.email,
       entity.passwordHashed,
       entity.isVerified,
-      entity.accountIds || []
+      entity.accountIds || [],
+      entity.role || 'CLIENT',
+      entity.isBanned || false
     );
     return client;
   }

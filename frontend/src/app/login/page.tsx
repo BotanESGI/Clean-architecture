@@ -20,10 +20,17 @@ export default function LoginPage() {
     try {
       const res = await api.login({ email, password });
       localStorage.setItem("token", res.token);
+      localStorage.setItem("role", res.role);
       setToken(res.token);
       setMessage("Connexion réussie !");
       show("Connexion réussie", "success");
-      router.push("/dashboard");
+      
+      // Redirection selon le rôle
+      if (res.role === "DIRECTOR") {
+        router.push("/director/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erreur lors de la connexion";
       setMessage(msg);

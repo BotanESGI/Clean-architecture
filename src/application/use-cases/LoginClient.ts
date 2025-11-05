@@ -5,7 +5,7 @@ import jwt, { SignOptions } from "jsonwebtoken";
 export class LoginClient {
   constructor(private readonly clientRepository: ClientRepository) {}
 
-  async execute(email: string, password: string): Promise<string> {
+  async execute(email: string, password: string): Promise<{ token: string; role: string }> {
     const client = await this.clientRepository.findByEmail(email);
     if (!client) throw new Error("Email ou mot de passe invalide");
 
@@ -16,15 +16,18 @@ export class LoginClient {
     // Vérification que le compte est confirmé
     if (!client.getIsVerified()) throw new Error("Compte non vérifié. Merci de confirmer votre email.");
 
-    // Génération d’un JWT pour la session
+    // Vérification que le compte n'est pas banni
+    if (client.getIsBanned()) throw new Error("Votre compte a été banni.");
+
+    // Génération d'un JWT pour la session
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error("JWT_SECRET non défini");
 
-    const payload = { clientId: client.getId() };
+    const payload = { clientId: client.getId(), role: client.getRole() };
     const expiresInEnv = process.env.JWT_EXPIRES_IN;
     const options: SignOptions = { expiresIn: expiresInEnv ? (expiresInEnv as jwt.SignOptions["expiresIn"]) : "1d" };
     const token = jwt.sign(payload, secret, options);
 
-    return token;
+    return { token, role: client.getRole() };
   }
 }
