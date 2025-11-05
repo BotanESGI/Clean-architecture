@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 type PageProps = {
-  searchParams: { email?: string | string[] };
+  searchParams?: Promise<{ email?: string | string[] }>;
 };
 
-export default function RegisterSentPage({ searchParams }: PageProps) {
-  const raw = searchParams?.email;
+export default async function RegisterSentPage({ searchParams }: PageProps) {
+  const params = searchParams ? await searchParams : undefined;
+  const raw = params?.email;
   const email = Array.isArray(raw) ? raw[0] : raw;
 
   return (
