@@ -18,14 +18,15 @@ export default function ConfirmPage({ params }: { params: Promise<{ token: strin
         setMessage(res.message || "Compte confirmé avec succès");
         setOk(true);
         show("Compte confirmé avec succès", "success");
-      } catch (e: any) {
-        setMessage(e.message || "Le lien de confirmation est invalide ou expiré.");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Le lien de confirmation est invalide ou expiré.";
+        setMessage(message);
         setOk(false);
         show("Échec de la confirmation", "error");
       }
     }
     run();
-  }, [token]);
+  }, [token, show]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">

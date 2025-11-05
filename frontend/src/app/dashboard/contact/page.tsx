@@ -48,8 +48,9 @@ export default function ContactPage() {
       show("Message envoyé avec succès", "success");
       setSubject("");
       setMessage("");
-    } catch (err: any) {
-      show(err.message || "Erreur lors de l'envoi du message", "error");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erreur lors de l'envoi du message";
+      show(message, "error");
     } finally {
       setLoading(false);
     }

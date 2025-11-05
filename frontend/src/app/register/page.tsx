@@ -56,8 +56,8 @@ export default function RegisterPage() {
       setMessage(msg);
       show("Inscription réussie. Vérifiez votre email.", "success");
       router.push(`/register/sent?email=${encodeURIComponent(email)}`);
-    } catch (err: any) {
-      const msg = err.message || "Erreur lors de l'inscription";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erreur lors de l'inscription";
       setMessage(msg);
       show(msg, "error");
     }
@@ -114,7 +114,7 @@ export default function RegisterPage() {
             <li className={requirements.digit ? "text-text" : "text-muted"}>1 chiffre</li>
             <li className={requirements.special ? "text-text" : "text-muted"}>1 caractère spécial</li>
           </ul>
-          <button type="submit" className="btn-primary w-full disabled:opacity-50" disabled={!passwordValid}>S'inscrire</button>
+          <button type="submit" className="btn-primary w-full disabled:opacity-50" disabled={!passwordValid}>S&apos;inscrire</button>
         </form>
       </div>
     </div>

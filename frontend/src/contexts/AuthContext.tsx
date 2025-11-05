@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useState, useContext, ReactNode, useCallback } from "react";
 
 interface AuthContextType {
   token: string | null;
