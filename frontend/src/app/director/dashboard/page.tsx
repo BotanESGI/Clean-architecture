@@ -148,6 +148,7 @@ export default function DirectorDashboardPage() {
   });
 
   return (
+    <>
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -331,7 +332,7 @@ export default function DirectorDashboardPage() {
         token={token || ""}
       />
     )}
-  </>
+    </>
   );
 }
 
