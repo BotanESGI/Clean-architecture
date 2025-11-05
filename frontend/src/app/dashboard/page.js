@@ -1,0 +1,768 @@
+"use strict";
+"use client";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = DashboardPage;
+const react_1 = require("react");
+const AuthContext_1 = require("../../contexts/AuthContext");
+const ToastContext_1 = require("../../contexts/ToastContext");
+const api_1 = __importDefault(require("../../lib/api"));
+function DashboardPage() {
+    const { token } = (0, AuthContext_1.useAuth)();
+    const [balance, setBalance] = (0, react_1.useState)(0);
+    const [transactions, setTransactions] = (0, react_1.useState)([]);
+    const [loading, setLoading] = (0, react_1.useState)(true);
+    const [clientName, setClientName] = (0, react_1.useState)("Client");
+    const [ibanInfo, setIbanInfo] = (0, react_1.useState)(null);
+    const [showAccountModal, setShowAccountModal] = (0, react_1.useState)(false);
+    const [showTransferModal, setShowTransferModal] = (0, react_1.useState)(false);
+    const [showCreateAccountModal, setShowCreateAccountModal] = (0, react_1.useState)(false);
+    const { show } = (0, ToastContext_1.useToast)();
+    const [modalBanner, setModalBanner] = (0, react_1.useState)("");
+    const [accounts, setAccounts] = (0, react_1.useState)([]);
+    const [activeAccountId, setActiveAccountId] = (0, react_1.useState)(null);
+    const [displayedCardIndex, setDisplayedCardIndex] = (0, react_1.useState)(0);
+    const [activityHistory, setActivityHistory] = (0, react_1.useState)([]);
+    const [newAccountName, setNewAccountName] = (0, react_1.useState)("");
+    const [beneficiaries, setBeneficiaries] = (0, react_1.useState)([]);
+    const [showBeneficiaryModal, setShowBeneficiaryModal] = (0, react_1.useState)(false);
+    // Load account data (transactions and activity history) for a specific account
+    const loadAccountData = (0, react_1.useCallback)(async (accountId) => {
+        if (!accountId)
+            return;
+        try {
+            // Load transactions
+            const txns = await api_1.default.listTransactions([accountId]);
+            const formatted = txns.map(t => ({
+                id: t.id,
+                date: t.createdAt,
+                label: t.label,
+                amount: t.type === "transfer_in" ? t.amount : -t.amount,
+            }));
+            setTransactions(formatted);
+            // Load activity history from localStorage (per account)
+            try {
+                const stored = localStorage.getItem(`activityHistory_${accountId}`);
+                if (stored) {
+                    setActivityHistory(JSON.parse(stored));
+                }
+                else {
+                    setActivityHistory([]);
+                }
+            }
+            catch {
+                setActivityHistory([]);
+            }
+            // Load beneficiaries from localStorage (per account)
+            try {
+                const stored = localStorage.getItem(`beneficiaries_${accountId}`);
+                if (stored) {
+                    setBeneficiaries(JSON.parse(stored));
+                }
+                else {
+                    setBeneficiaries([]);
+                }
+            }
+            catch {
+                setBeneficiaries([]);
+            }
+        }
+        catch (err) {
+            console.error("Error loading account data:", err);
+            setTransactions([]);
+            setActivityHistory([]);
+        }
+    }, []);
+    // Switch to a different account
+    const switchAccount = (0, react_1.useCallback)(async (accountId) => {
+        const account = accounts.find(a => a.id === accountId);
+        if (!account)
+            return;
+        setActiveAccountId(accountId);
+        setBalance(account.balance);
+        setIbanInfo({ iban: account.iban, name: account.name, createdAt: account.createdAt });
+        setDisplayedCardIndex(accounts.findIndex(a => a.id === accountId));
+        await loadAccountData(accountId);
+        const accountName = account.name || "Compte";
+        show(`Compte sélectionné: ${accountName}`, "success");
+    }, [accounts, loadAccountData, show]);
+    // Initial load
+    (0, react_1.useEffect)(() => {
+        async function load() {
+            try {
+                const clientId = decodeClientId(token);
+                if (!clientId)
+                    return;
+                const [profile, list] = await Promise.all([
+                    api_1.default.getClient(clientId),
+                    api_1.default.listAccounts(clientId),
+                ]);
+                setClientName(`${profile.firstname} ${profile.lastname}`);
+                setAccounts(list);
+                const primary = list[0];
+                if (primary) {
+                    setActiveAccountId(primary.id);
+                    setBalance(primary.balance);
+                    setIbanInfo({ iban: primary.iban, name: primary.name, createdAt: primary.createdAt || undefined });
+                    setDisplayedCardIndex(0);
+                    await loadAccountData(primary.id);
+                }
+            }
+            catch (err) {
+                console.error("Error loading dashboard:", err);
+                show("Erreur lors du chargement", "error");
+            }
+            finally {
+                setLoading(false);
+            }
+        }
+        if (token) {
+            load();
+        }
+    }, [token, loadAccountData]);
+    // Polling for real-time updates
+    (0, react_1.useEffect)(() => {
+        if (!activeAccountId || !token)
+            return;
+        const interval = setInterval(async () => {
+            try {
+                const clientId = decodeClientId(token);
+                if (!clientId)
+                    return;
+                // Refresh accounts list to get updated balances
+                const list = await api_1.default.listAccounts(clientId);
+                setAccounts(list);
+                const currentAccount = list.find(a => a.id === activeAccountId);
+                if (currentAccount) {
+                    setBalance(currentAccount.balance);
+                    // Reload transactions to check for new incoming transfers
+                    const txns = await api_1.default.listTransactions([activeAccountId]);
+                    const formatted = txns.map(t => ({
+                        id: t.id,
+                        date: t.createdAt,
+                        label: t.label,
+                        amount: t.type === "transfer_in" ? t.amount : -t.amount,
+                    }));
+                    setTransactions(formatted);
+                    // Check for new incoming transfers to add to activity history
+                    try {
+                        const stored = localStorage.getItem(`activityHistory_${activeAccountId}`);
+                        const existingHistory = stored ? JSON.parse(stored) : [];
+                        const existingIds = new Set(existingHistory.map(h => h.id));
+                        const newTransfers = txns
+                            .filter(t => t.type === "transfer_in" && !existingIds.has(t.id))
+                            .map(t => ({
+                            id: t.id,
+                            date: t.createdAt,
+                            label: `Virement reçu de ${t.relatedClientName || "Inconnu"} - ${formatCurrency(t.amount)}`,
+                            type: "transfer_in",
+                        }));
+                        if (newTransfers.length > 0) {
+                            const updatedHistory = [...newTransfers, ...existingHistory];
+                            setActivityHistory(updatedHistory);
+                            localStorage.setItem(`activityHistory_${activeAccountId}`, JSON.stringify(updatedHistory));
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch (err) {
+                console.error("Error polling:", err);
+            }
+        }, 3000); // Poll every 3 seconds
+        return () => clearInterval(interval);
+    }, [activeAccountId, token]);
+    const income = (0, react_1.useMemo)(() => transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0), [transactions]);
+    const expense = (0, react_1.useMemo)(() => transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0), [transactions]);
+    const displayedAccount = accounts[displayedCardIndex] || accounts.find(a => a.id === activeAccountId) || accounts[0];
+    return (<>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold">Bonjour, <span className="text-primary">{clientName}</span></h1>
+          <p className="text-muted text-sm mt-1">Vue d'ensemble de vos comptes</p>
+        </div>
+        <div className="chip">Solde mis à jour en temps réel</div>
+      </div>
+
+      {/* Top cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="stat">
+          <div>
+            <p className="text-muted text-sm">Solde principal</p>
+            <p className="text-3xl font-extrabold mt-1">{formatCurrency(balance)}</p>
+          </div>
+          <span className="pill">Compte courant</span>
+        </div>
+        <div className="stat">
+          <div>
+            <p className="text-muted text-sm">Dépenses (30j)</p>
+            <p className="text-2xl font-semibold mt-1">{formatCurrency(expense)}</p>
+          </div>
+          <span className="pill">Sortants</span>
+        </div>
+        <div className="stat">
+          <div>
+            <p className="text-muted text-sm">Revenus (30j)</p>
+            <p className="text-2xl font-semibold mt-1">{formatCurrency(income)}</p>
+          </div>
+          <span className="pill">Entrants</span>
+        </div>
+      </div>
+
+      {/* Middle: simple chart placeholder + quick actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Activité récente</h3>
+            <span className="text-xs text-muted">Historique</span>
+          </div>
+          <div className="divide-y divide-white/10 max-h-64 overflow-y-auto">
+            {activityHistory.length === 0 ? (<p className="text-muted text-sm py-4">Pas encore d'historique d'activités</p>) : (activityHistory.map((activity) => (<div key={activity.id} className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full border flex items-center justify-center ${activity.type === "create"
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : activity.type === "delete"
+                    ? "bg-red-500/10 border-red-500/30 text-red-400"
+                    : activity.type === "transfer_in"
+                        ? "bg-green-500/10 border-green-500/30 text-green-400"
+                        : "bg-orange-500/10 border-orange-500/30 text-orange-400"}`}>
+                      {activity.type === "create" ? "+" : activity.type === "delete" ? "✕" : activity.type === "transfer_in" ? "↓" : "↑"}
+                    </div>
+                    <div>
+                      <p className="font-medium">{activity.label}</p>
+                      <p className="text-xs text-muted">{new Date(activity.date).toLocaleString("fr-FR")}</p>
+                    </div>
+                  </div>
+                </div>)))}
+          </div>
+        </div>
+        <div className="card">
+          <h3 className="font-semibold mb-4">Vos cartes</h3>
+          {/* Carousel: prev ← current card → next */}
+          <div className="flex items-center gap-3">
+            <button className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex <= 0 ? "opacity-40 pointer-events-none" : "")} aria-label="Précédent" onClick={() => {
+            if (accounts.length === 0)
+                return;
+            const newIdx = Math.max(0, displayedCardIndex - 1);
+            setDisplayedCardIndex(newIdx);
+        }}>
+              ◀
+            </button>
+            <div className="relative flex-1">
+              {(() => {
+            if (!displayedAccount)
+                return <div className="text-sm text-muted">Aucun compte</div>;
+            const isActive = displayedAccount.id === activeAccountId;
+            return (<div className={"p-1 rounded-2xl " + cardBgByIndex(displayedCardIndex)}>
+                    <div className="relative">
+                      <button className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 z-10 flex items-center justify-center" aria-label="Supprimer le compte" onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!confirm("Supprimer ce compte ?"))
+                        return;
+                    const accountName = displayedAccount.name || "Compte";
+                    await api_1.default.deleteAccount(displayedAccount.id);
+                    const updated = accounts.filter(a => a.id !== displayedAccount.id);
+                    setAccounts(updated);
+                    // Remove activity history for deleted account
+                    localStorage.removeItem(`activityHistory_${displayedAccount.id}`);
+                    const next = updated[0];
+                    if (next) {
+                        await switchAccount(next.id);
+                    }
+                    else {
+                        setActiveAccountId(null);
+                        setBalance(0);
+                        setIbanInfo(null);
+                        setTransactions([]);
+                        setActivityHistory([]);
+                        setDisplayedCardIndex(0);
+                    }
+                    show("Compte supprimé", "success");
+                }}>
+                        ✕
+                      </button>
+                      <button className="w-full text-left" onClick={() => switchAccount(displayedAccount.id)}>
+                        <BankCard balance={displayedAccount.balance} holder={clientName} last4={isActive ? displayedAccount.iban.slice(-4) : "****"}/>
+                      </button>
+                    </div>
+                  </div>);
+        })()}
+            </div>
+            <button className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex >= accounts.length - 1 ? "opacity-40 pointer-events-none" : "")} aria-label="Suivant" onClick={() => {
+            if (accounts.length === 0)
+                return;
+            const newIdx = Math.min(accounts.length - 1, displayedCardIndex + 1);
+            setDisplayedCardIndex(newIdx);
+        }}>
+              ▶
+            </button>
+          </div>
+          {/* Pagination indicator */}
+          <div className="mt-2 text-center text-xs text-muted">
+            {accounts.length > 0 ? (<span>{displayedCardIndex + 1} / {accounts.length}</span>) : (<span>0 / 0</span>)}
+          </div>
+          <h3 className="font-semibold mt-6 mb-4">Actions rapides</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <button className="btn-secondary" onClick={() => setShowTransferModal(true)}>Virement</button>
+            <button className="btn-secondary" onClick={() => setShowAccountModal(true)}>Infos compte</button>
+            <button className="btn-secondary" onClick={() => setShowCreateAccountModal(true)}>Nouveau compte</button>
+            <button className="btn-secondary" onClick={() => setShowBeneficiaryModal(true)}>Gérer bénéficiaires</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Dernières transactions</h3>
+          <span className="text-xs text-muted">{transactions.length} éléments</span>
+        </div>
+        <div className="divide-y divide-white/10">
+          {loading ? (<p className="text-muted text-sm py-4">Chargement…</p>) : transactions.length === 0 ? (<p className="text-muted text-sm py-4">Pas encore de transactions</p>) : (transactions.map((t) => (<div key={t.id} className="py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-white/5 border border-white/10"/>
+                  <div>
+                    <p className="font-medium">{t.label}</p>
+                    <p className="text-xs text-muted">{new Date(t.date).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className={t.amount < 0 ? "text-red-400" : "text-primary"}>
+                  {t.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(t.amount))}
+                </div>
+              </div>)))}
+        </div>
+      </div>
+    </div>
+
+    {/* Account Info Modal */}
+    {showAccountModal && ibanInfo && (<Modal onClose={() => setShowAccountModal(false)}>
+        {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
+        <h3 className="font-semibold mb-4">Informations du compte</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between"><span className="text-muted">Titulaire</span><span className="font-medium">{clientName}</span></div>
+          <div className="flex items-center justify-between"><span className="text-muted">Type</span><span className="font-medium">{ibanInfo.name ?? "Compte courant"}</span></div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted">IBAN</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{ibanInfo.iban}</span>
+              <button type="button" className="icon-btn" aria-label="Copier l'IBAN" onClick={async () => {
+                try {
+                    await navigator.clipboard?.writeText(ibanInfo.iban);
+                    setModalBanner("IBAN copié dans le presse‑papiers");
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show("IBAN copié dans le presse‑papiers", "success");
+                }
+                catch {
+                    setModalBanner("Impossible de copier l'IBAN");
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show("Impossible de copier l'IBAN", "error");
+                }
+            }}>
+                <CopyIcon />
+              </button>
+            </div>
+          </div>
+          {ibanInfo.createdAt && (<div className="flex items-center justify-between"><span className="text-muted">Date de création</span><span className="font-medium">{new Date(ibanInfo.createdAt).toLocaleDateString("fr-FR")}</span></div>)}
+          <div className="flex items-center justify-between"><span className="text-muted">Solde</span><span className="font-medium">{formatCurrency(balance)}</span></div>
+        </div>
+        <div className="mt-6 text-right">
+          <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
+        </div>
+      </Modal>)}
+
+    {/* Beneficiary Modal */}
+    {showBeneficiaryModal && activeAccountId && (<BeneficiaryModal accountId={activeAccountId} beneficiaries={beneficiaries} onClose={() => setShowBeneficiaryModal(false)} onUpdate={(updated) => {
+                setBeneficiaries(updated);
+                localStorage.setItem(`beneficiaries_${activeAccountId}`, JSON.stringify(updated));
+            }}/>)}
+
+    {/* Transfer Modal */}
+    {showTransferModal && (<TransferModal fromIban={ibanInfo?.iban || ""} balance={balance} beneficiaries={beneficiaries} onClose={() => setShowTransferModal(false)} onSuccess={async (amount, toIban) => {
+                try {
+                    await api_1.default.transfer(ibanInfo?.iban || "", toIban, amount);
+                    show("Virement effectué avec succès", "success");
+                    // Update balance
+                    const clientId = decodeClientId(token);
+                    if (clientId) {
+                        const list = await api_1.default.listAccounts(clientId);
+                        setAccounts(list);
+                        const currentAccount = list.find(a => a.id === activeAccountId);
+                        if (currentAccount) {
+                            setBalance(currentAccount.balance);
+                        }
+                    }
+                    // Add to activity history
+                    if (activeAccountId) {
+                        try {
+                            const stored = localStorage.getItem(`activityHistory_${activeAccountId}`);
+                            const existingHistory = stored ? JSON.parse(stored) : [];
+                            const newHistory = [{
+                                    id: `transfer_out_${Date.now()}`,
+                                    date: new Date().toISOString(),
+                                    label: `Virement effectué vers ${toIban} - ${formatCurrency(amount)}`,
+                                    type: "transfer_out",
+                                }, ...existingHistory];
+                            setActivityHistory(newHistory);
+                            localStorage.setItem(`activityHistory_${activeAccountId}`, JSON.stringify(newHistory));
+                        }
+                        catch { }
+                    }
+                    // Reload transactions
+                    if (activeAccountId) {
+                        await loadAccountData(activeAccountId);
+                    }
+                    setShowTransferModal(false);
+                }
+                catch (err) {
+                    show(err.message || "Erreur lors du virement", "error");
+                }
+            }}/>)}
+
+    {/* Create Account Modal */}
+    {showCreateAccountModal && (<Modal onClose={() => setShowCreateAccountModal(false)}>
+        <h3 className="font-semibold mb-4">Créer un nouveau compte</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Nom du compte</label>
+            <input type="text" className="input-minimal w-full" placeholder="Compte courant" value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)}/>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button className="btn-secondary flex-1" onClick={() => {
+                setShowCreateAccountModal(false);
+                setNewAccountName("");
+            }}>Annuler</button>
+            <button className="btn-primary flex-1" onClick={async () => {
+                try {
+                    const clientId = decodeClientId(token);
+                    if (!clientId)
+                        return;
+                    const created = await api_1.default.createAccount(clientId, newAccountName || undefined);
+                    const accountName = created.name || "Compte";
+                    const list = [created, ...accounts];
+                    setAccounts(list);
+                    // Switch to new account
+                    await switchAccount(created.id);
+                    // Add to activity history
+                    const newHistory = [{
+                            id: `create-${Date.now()}`,
+                            date: new Date().toISOString(),
+                            label: `Compte "${accountName}" créé`,
+                            type: "create",
+                        }, ...activityHistory];
+                    setActivityHistory(newHistory);
+                    localStorage.setItem(`activityHistory_${created.id}`, JSON.stringify(newHistory));
+                    show("Compte créé", "success");
+                    setShowCreateAccountModal(false);
+                    setNewAccountName("");
+                }
+                catch (err) {
+                    show(err.message || "Erreur lors de la création", "error");
+                }
+            }}>Créer</button>
+          </div>
+        </div>
+      </Modal>)}
+    </>);
+}
+function formatCurrency(v) {
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+}
+function decodeClientId(token) {
+    if (!token)
+        return null;
+    const parts = token.split(".");
+    if (parts.length < 2)
+        return null;
+    try {
+        const payload = JSON.parse(atob(parts[1]));
+        return payload?.clientId ?? null;
+    }
+    catch {
+        return null;
+    }
+}
+function BankCard({ balance, holder, last4 }) {
+    return (<div className="relative overflow-hidden rounded-2xl border border-white/10 p-5 bg-gradient-to-br from-white/5 to-white/0">
+      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/20 blur-3xl"/>
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted">Carte Visa</span>
+          <span className="pill">Active</span>
+        </div>
+        <p className="text-lg font-semibold mt-6 tracking-widest">**** **** **** {last4}</p>
+        <div className="mt-6 flex items-center justify-between text-sm">
+          <div>
+            <p className="text-muted">Titulaire</p>
+            <p className="font-medium">{holder}</p>
+          </div>
+          <div>
+            <p className="text-muted">Solde</p>
+            <p className="font-medium">{formatCurrency(balance)}</p>
+          </div>
+        </div>
+      </div>
+    </div>);
+}
+function Modal({ children, onClose }) {
+    return (<div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
+      <div className="relative glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
+        {children}
+      </div>
+    </div>);
+}
+function cardBgByIndex(i) {
+    const colors = [
+        "from-primary/15 to-white/0",
+        "from-accent/15 to-white/0",
+        "from-white/15 to-white/0",
+    ];
+    return `bg-gradient-to-br ${colors[i % colors.length]}`;
+}
+function CopyIcon() {
+    return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.6"/>
+    </svg>);
+}
+function TransferModal({ fromIban, balance, beneficiaries, onClose, onSuccess }) {
+    const [toIban, setToIban] = (0, react_1.useState)("");
+    const [amount, setAmount] = (0, react_1.useState)("");
+    const [selectedBeneficiaryId, setSelectedBeneficiaryId] = (0, react_1.useState)("");
+    const [loading, setLoading] = (0, react_1.useState)(false);
+    const { show } = (0, ToastContext_1.useToast)();
+    // When beneficiary is selected, fill the IBAN
+    (0, react_1.useEffect)(() => {
+        if (selectedBeneficiaryId) {
+            const beneficiary = beneficiaries.find(b => b.id === selectedBeneficiaryId);
+            if (beneficiary) {
+                setToIban(beneficiary.iban);
+            }
+        }
+    }, [selectedBeneficiaryId, beneficiaries]);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const numAmount = parseFloat(amount);
+        if (!toIban.trim()) {
+            show("Veuillez entrer un IBAN destinataire", "error");
+            return;
+        }
+        if (!numAmount || numAmount <= 0) {
+            show("Montant invalide", "error");
+            return;
+        }
+        // Validation du solde désactivée pour les tests
+        // if (numAmount > balance) {
+        //   show("Solde insuffisant", "error");
+        //   return;
+        // }
+        // Check if selected beneficiary is not in our bank
+        const selectedBeneficiary = selectedBeneficiaryId ? beneficiaries.find(b => b.id === selectedBeneficiaryId) : null;
+        if (selectedBeneficiary && !selectedBeneficiary.isInBank) {
+            show("Cette fonctionnalité n'est pas prise en charge pour les bénéficiaires externes. Veuillez contacter un de nos conseillers.", "warning");
+            return;
+        }
+        // Also check if manually entered IBAN belongs to a non-bank beneficiary
+        const beneficiary = beneficiaries.find(b => b.iban === toIban.trim());
+        if (beneficiary && !beneficiary.isInBank) {
+            show("Cette fonctionnalité n'est pas prise en charge pour les bénéficiaires externes. Veuillez contacter un de nos conseillers.", "warning");
+            return;
+        }
+        setLoading(true);
+        try {
+            await onSuccess(numAmount, toIban.trim());
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    return (<Modal onClose={onClose}>
+      <h3 className="font-semibold mb-4">Effectuer un virement</h3>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {beneficiaries.length > 0 && (<div>
+            <label className="block text-sm font-medium mb-2">Choisir un bénéficiaire</label>
+            <select className="input-minimal w-full" value={selectedBeneficiaryId} onChange={(e) => setSelectedBeneficiaryId(e.target.value)}>
+              <option value="">Sélectionner un bénéficiaire ou saisir manuellement</option>
+              {beneficiaries.map(b => (<option key={b.id} value={b.id}>
+                  {b.firstName} {b.lastName} - {b.iban} {!b.isInBank && "(Externe)"}
+                </option>))}
+            </select>
+          </div>)}
+        <div>
+          <label className="block text-sm font-medium mb-2">IBAN destinataire</label>
+          <input type="text" className="input-minimal w-full" placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" value={toIban} onChange={(e) => {
+            setToIban(e.target.value);
+            setSelectedBeneficiaryId(""); // Clear selection when manually typing
+        }} required/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Montant</label>
+          <input type="number" step="0.01" min="0.01" className="input-minimal w-full" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} required/>
+          <p className="text-xs text-muted mt-1">Solde disponible: {formatCurrency(balance)}</p>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={loading}>Annuler</button>
+          <button type="submit" className="btn-primary flex-1" disabled={loading}>
+            {loading ? "Envoi..." : "Envoyer"}
+          </button>
+        </div>
+      </form>
+    </Modal>);
+}
+function BeneficiaryModal({ accountId, beneficiaries, onClose, onUpdate }) {
+    const [iban, setIban] = (0, react_1.useState)("");
+    const [firstName, setFirstName] = (0, react_1.useState)("");
+    const [lastName, setLastName] = (0, react_1.useState)("");
+    const [loading, setLoading] = (0, react_1.useState)(false);
+    const [verificationResult, setVerificationResult] = (0, react_1.useState)(null);
+    const [showConfirmDialog, setShowConfirmDialog] = (0, react_1.useState)(false);
+    const { show } = (0, ToastContext_1.useToast)();
+    const handleVerify = async () => {
+        if (!iban.trim()) {
+            show("Veuillez entrer un IBAN", "error");
+            return;
+        }
+        if (!firstName.trim() || !lastName.trim()) {
+            show("Veuillez entrer le nom et prénom", "error");
+            return;
+        }
+        setLoading(true);
+        try {
+            const result = await api_1.default.verifyBeneficiary(iban.trim(), firstName.trim(), lastName.trim());
+            setVerificationResult(result);
+            if (!result.exists) {
+                // IBAN not found - ask if user wants to add anyway
+                setShowConfirmDialog(true);
+            }
+            else if (result.exists && !result.verified) {
+                // IBAN exists but names don't match - show confirmation dialog
+                setShowConfirmDialog(true);
+            }
+            else {
+                // Everything matches - add directly
+                addBeneficiary(result.firstName || firstName.trim(), result.lastName || lastName.trim(), true);
+            }
+        }
+        catch (err) {
+            show(err.message || "Erreur lors de la vérification", "error");
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const addBeneficiary = (actualFirstName, actualLastName, isInBank) => {
+        const newBeneficiary = {
+            id: `benef_${Date.now()}`,
+            iban: iban.trim(),
+            firstName: actualFirstName,
+            lastName: actualLastName,
+            isInBank,
+        };
+        // Check if already exists
+        if (beneficiaries.some(b => b.iban === newBeneficiary.iban)) {
+            show("Ce bénéficiaire existe déjà", "error");
+            return;
+        }
+        const updated = [newBeneficiary, ...beneficiaries];
+        onUpdate(updated);
+        show("Bénéficiaire ajouté", "success");
+        // Reset form
+        setIban("");
+        setFirstName("");
+        setLastName("");
+        setVerificationResult(null);
+        setShowConfirmDialog(false);
+    };
+    const handleDelete = (id) => {
+        if (!confirm("Supprimer ce bénéficiaire ?"))
+            return;
+        const updated = beneficiaries.filter(b => b.id !== id);
+        onUpdate(updated);
+        show("Bénéficiaire supprimé", "success");
+    };
+    return (<Modal onClose={onClose}>
+      <h3 className="font-semibold mb-4">Gérer les bénéficiaires</h3>
+      
+      {/* Add beneficiary form */}
+      <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
+        <h4 className="text-sm font-medium">Ajouter un bénéficiaire</h4>
+        <div>
+          <label className="block text-sm font-medium mb-2">IBAN</label>
+          <input type="text" className="input-minimal w-full" placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" value={iban} onChange={(e) => setIban(e.target.value)}/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Prénom</label>
+          <input type="text" className="input-minimal w-full" placeholder="Prénom" value={firstName} onChange={(e) => setFirstName(e.target.value)}/>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Nom</label>
+          <input type="text" className="input-minimal w-full" placeholder="Nom" value={lastName} onChange={(e) => setLastName(e.target.value)}/>
+        </div>
+        {verificationResult && !verificationResult.exists && (<div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm text-yellow-400">
+            Ce bénéficiaire ne fait pas partie de notre banque.
+          </div>)}
+        {verificationResult && verificationResult.exists && !verificationResult.verified && (<div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded text-sm text-orange-400">
+            Le RIB existe mais le bénéficiaire est : {verificationResult.firstName} {verificationResult.lastName}
+          </div>)}
+        <button className="btn-primary w-full" onClick={handleVerify} disabled={loading}>
+          {loading ? "Vérification..." : "Ajouter bénéficiaire"}
+        </button>
+      </div>
+
+      {/* Confirmation dialog */}
+      {showConfirmDialog && verificationResult && (<div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowConfirmDialog(false)}/>
+          <div className="relative glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
+            <h4 className="font-semibold mb-4">Confirmer l'ajout</h4>
+            {!verificationResult.exists ? (<p className="text-sm mb-4">
+                Ce bénéficiaire ne fait pas partie de notre banque. Souhaitez-vous l'ajouter quand même ?
+              </p>) : (<p className="text-sm mb-4">
+                Le RIB existe mais le bénéficiaire est : <strong>{verificationResult.firstName} {verificationResult.lastName}</strong>. Souhaitez-vous l'ajouter quand même ?
+              </p>)}
+            <div className="flex gap-3">
+              <button className="btn-secondary flex-1" onClick={() => {
+                setShowConfirmDialog(false);
+                setVerificationResult(null);
+            }}>
+                Annuler
+              </button>
+              <button className="btn-primary flex-1" onClick={() => {
+                if (verificationResult.exists && verificationResult.firstName && verificationResult.lastName) {
+                    addBeneficiary(verificationResult.firstName, verificationResult.lastName, true);
+                }
+                else {
+                    addBeneficiary(firstName.trim(), lastName.trim(), false);
+                }
+            }}>
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>)}
+
+      {/* List of beneficiaries */}
+      <div>
+        <h4 className="text-sm font-medium mb-3">Bénéficiaires enregistrés</h4>
+        {beneficiaries.length === 0 ? (<p className="text-muted text-sm py-4">Aucun bénéficiaire enregistré</p>) : (<div className="space-y-2 max-h-64 overflow-y-auto">
+            {beneficiaries.map(b => (<div key={b.id} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10">
+                <div>
+                  <p className="font-medium">{b.firstName} {b.lastName}</p>
+                  <p className="text-xs text-muted">{b.iban}</p>
+                  {!b.isInBank && <span className="text-xs text-yellow-400">(Externe)</span>}
+                </div>
+                <button className="icon-btn text-red-400" onClick={() => handleDelete(b.id)} aria-label="Supprimer">
+                  ✕
+                </button>
+              </div>))}
+          </div>)}
+      </div>
+
+      <div className="mt-6 text-right">
+        <button className="btn-primary" onClick={onClose}>Fermer</button>
+      </div>
+    </Modal>);
+}

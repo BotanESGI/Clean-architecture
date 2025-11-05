@@ -10,5 +10,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "types": ["jest", "node"]
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "frontend", "dist"]
 }
