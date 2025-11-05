@@ -24,8 +24,8 @@ export default function LoginPage() {
       setMessage("Connexion réussie !");
       show("Connexion réussie", "success");
       router.push("/dashboard");
-    } catch (err: any) {
-      const msg = err.message || "Erreur lors de la connexion";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erreur lors de la connexion";
       setMessage(msg);
       show(msg, "error");
     }

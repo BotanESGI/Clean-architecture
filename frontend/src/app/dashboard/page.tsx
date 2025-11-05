@@ -85,7 +85,7 @@ export default function DashboardPage() {
       } catch {
         setBeneficiaries([]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading account data:", err);
       setTransactions([]);
       setActivityHistory([]);
@@ -131,7 +131,7 @@ export default function DashboardPage() {
           setDisplayedCardIndex(0);
           await loadAccountData(primary.id);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error loading dashboard:", err);
         show("Erreur lors du chargement", "error");
       } finally {
@@ -141,7 +141,7 @@ export default function DashboardPage() {
     if (token) {
       load();
     }
-  }, [token, loadAccountData]);
+  }, [token, loadAccountData, show]);
 
   // Polling for real-time updates
   useEffect(() => {
@@ -212,7 +212,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold">Bonjour, <span className="text-primary">{clientName}</span></h1>
-          <p className="text-muted text-sm mt-1">Vue d'ensemble de vos comptes</p>
+          <p className="text-muted text-sm mt-1">Vue d&apos;ensemble de vos comptes</p>
         </div>
         <div className="chip">Solde mis à jour en temps réel</div>
       </div>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-white/10 max-h-64 overflow-y-auto">
             {activityHistory.length === 0 ? (
-              <p className="text-muted text-sm py-4">Pas encore d'historique d'activités</p>
+              <p className="text-muted text-sm py-4">Pas encore d&apos;historique d&apos;activités</p>
             ) : (
               activityHistory.map((activity) => (
                 <div key={activity.id} className="py-3 flex items-center justify-between">
@@ -305,7 +305,6 @@ export default function DashboardPage() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           if (!confirm("Supprimer ce compte ?")) return;
-                          const accountName = displayedAccount.name || "Compte";
                           await api.deleteAccount(displayedAccount.id);
                           const updated = accounts.filter(a => a.id !== displayedAccount.id);
                           setAccounts(updated);
@@ -444,7 +443,6 @@ export default function DashboardPage() {
     {/* Beneficiary Modal */}
     {showBeneficiaryModal && activeAccountId && (
       <BeneficiaryModal
-        accountId={activeAccountId}
         beneficiaries={beneficiaries}
         onClose={() => setShowBeneficiaryModal(false)}
         onUpdate={(updated) => {
@@ -457,7 +455,6 @@ export default function DashboardPage() {
     {/* Transfer Modal */}
     {showTransferModal && (
       <TransferModal
-        fromIban={ibanInfo?.iban || ""}
         balance={balance}
         beneficiaries={beneficiaries}
         onClose={() => setShowTransferModal(false)}
@@ -499,8 +496,9 @@ export default function DashboardPage() {
             }
             
             setShowTransferModal(false);
-          } catch (err: any) {
-            show(err.message || "Erreur lors du virement", "error");
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Erreur lors du virement";
+            show(message, "error");
           }
         }}
       />
@@ -551,8 +549,9 @@ export default function DashboardPage() {
                 show("Compte créé", "success");
                 setShowCreateAccountModal(false);
                 setNewAccountName("");
-              } catch (err: any) {
-                show(err.message || "Erreur lors de la création", "error");
+              } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Erreur lors de la création";
+                show(message, "error");
               }
             }}>Créer</button>
           </div>
@@ -633,7 +632,7 @@ function CopyIcon() {
   );
 }
 
-function TransferModal({ fromIban, balance, beneficiaries, onClose, onSuccess }: { fromIban: string; balance: number; beneficiaries: Beneficiary[]; onClose: () => void; onSuccess: (amount: number, toIban: string) => Promise<void> }) {
+function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance: number; beneficiaries: Beneficiary[]; onClose: () => void; onSuccess: (amount: number, toIban: string) => Promise<void> }) {
   const [toIban, setToIban] = useState("");
   const [amount, setAmount] = useState("");
   const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>("");
@@ -752,7 +751,7 @@ function TransferModal({ fromIban, balance, beneficiaries, onClose, onSuccess }:
   );
 }
 
-function BeneficiaryModal({ accountId, beneficiaries, onClose, onUpdate }: { accountId: string; beneficiaries: Beneficiary[]; onClose: () => void; onUpdate: (updated: Beneficiary[]) => void }) {
+function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries: Beneficiary[]; onClose: () => void; onUpdate: (updated: Beneficiary[]) => void }) {
   const [iban, setIban] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -786,8 +785,9 @@ function BeneficiaryModal({ accountId, beneficiaries, onClose, onUpdate }: { acc
         // Everything matches - add directly
         addBeneficiary(result.firstName || firstName.trim(), result.lastName || lastName.trim(), true);
       }
-    } catch (err: any) {
-      show(err.message || "Erreur lors de la vérification", "error");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erreur lors de la vérification";
+      show(message, "error");
     } finally {
       setLoading(false);
     }
@@ -888,14 +888,14 @@ function BeneficiaryModal({ accountId, beneficiaries, onClose, onUpdate }: { acc
         <div className="fixed inset-0 z-[70] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowConfirmDialog(false)} />
           <div className="relative glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h4 className="font-semibold mb-4">Confirmer l'ajout</h4>
+            <h4 className="font-semibold mb-4">Confirmer l&apos;ajout</h4>
             {!verificationResult.exists ? (
               <p className="text-sm mb-4">
-                Ce bénéficiaire ne fait pas partie de notre banque. Souhaitez-vous l'ajouter quand même ?
+                Ce bénéficiaire ne fait pas partie de notre banque. Souhaitez-vous l&apos;ajouter quand même ?
               </p>
             ) : (
               <p className="text-sm mb-4">
-                Le RIB existe mais le bénéficiaire est : <strong>{verificationResult.firstName} {verificationResult.lastName}</strong>. Souhaitez-vous l'ajouter quand même ?
+                Le RIB existe mais le bénéficiaire est : <strong>{verificationResult.firstName} {verificationResult.lastName}</strong>. Souhaitez-vous l&apos;ajouter quand même ?
               </p>
             )}
             <div className="flex gap-3">
