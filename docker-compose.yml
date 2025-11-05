@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cleanarch-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  backend:
+    build: ./
+    container_name: cleanarch-backend
+    env_file:
+      - ./.env
+    depends_on:
+      - mysql
+    ports:
+      - "4000:4000"
+    command: ["./wait-for-it.sh", "mysql:3306", "--", "npm", "start"]
+
+  frontend:
+    build: ./frontend
+    container_name: cleanarch-frontend
+    env_file:
+      - ./frontend/.env.local
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql-data:
