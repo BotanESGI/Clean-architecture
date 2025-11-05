@@ -24,6 +24,14 @@ import { TransferFunds } from "../../application/use-cases/TransferFunds";
 import { VerifyBeneficiary } from "../../application/use-cases/VerifyBeneficiary";
 import { ListTransactions } from "../../application/use-cases/ListTransactions";
 import { TransactionController } from "../controllers/TransactionController";
+import { DirectorController } from "../controllers/DirectorController";
+import { ListAllClients } from "../../application/use-cases/ListAllClients";
+import { UpdateClient } from "../../application/use-cases/UpdateClient";
+import { DeleteClient } from "../../application/use-cases/DeleteClient";
+import { BanClient } from "../../application/use-cases/BanClient";
+import { UnbanClient } from "../../application/use-cases/UnbanClient";
+import { CreateClientByDirector } from "../../application/use-cases/CreateClientByDirector";
+import { checkDirector } from "../middleware/checkDirector";
 
 // --- Initialiser la base de données ---
 async function initializeDatabase() {
@@ -81,6 +89,24 @@ async function startServer() {
   // --- Controller (Transactions) ---
   const transactionController = new TransactionController(listTransactions);
 
+  // --- Use cases (Director) ---
+  const listAllClients = new ListAllClients(clientRepository);
+  const updateClient = new UpdateClient(clientRepository);
+  const deleteClient = new DeleteClient(clientRepository, accountRepository);
+  const banClient = new BanClient(clientRepository);
+  const unbanClient = new UnbanClient(clientRepository);
+  const createClientByDirector = new CreateClientByDirector(clientRepository, accountRepository);
+
+  // --- Controller (Director) ---
+  const directorController = new DirectorController(
+    listAllClients,
+    updateClient,
+    deleteClient,
+    banClient,
+    unbanClient,
+    createClientByDirector
+  );
+
   // --- App ---
   const app = express();
   app.use(bodyParser.json());
@@ -130,6 +156,14 @@ async function startServer() {
 
   // --- Routes Transactions ---
   app.get("/transactions", transactionController.list);
+
+  // --- Routes Director (protégées) ---
+  app.get("/director/clients", checkDirector, directorController.listClients);
+  app.post("/director/clients", checkDirector, directorController.create);
+  app.put("/director/clients/:id", checkDirector, directorController.update);
+  app.delete("/director/clients/:id", checkDirector, directorController.deleteClient);
+  app.post("/director/clients/:id/ban", checkDirector, directorController.ban);
+  app.post("/director/clients/:id/unban", checkDirector, directorController.unban);
 
   // --- Health endpoint ---
   app.get("/health", (_req, res) => {

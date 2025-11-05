@@ -23,7 +23,14 @@ export default function LoginPage() {
       setToken(res.token);
       setMessage("Connexion réussie !");
       show("Connexion réussie", "success");
-      router.push("/dashboard");
+      
+      // Rediriger selon le rôle
+      const role = decodeRole(res.token);
+      if (role === 'director') {
+        router.push("/director/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       const msg = err.message || "Erreur lors de la connexion";
       setMessage(msg);
@@ -73,4 +80,16 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function decodeRole(token: string | null): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(atob(parts[1]));
+    return payload?.role ?? null;
+  } catch {
+    return null;
+  }
 }

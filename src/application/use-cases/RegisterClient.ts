@@ -44,7 +44,9 @@ export class RegisterClient {
       lastName,
       email,
       passwordHash,
-      false
+      'client', // role
+      false,    // isBanned
+      false     // isVerified
     );
 
     await this.clientRepository.save(client);

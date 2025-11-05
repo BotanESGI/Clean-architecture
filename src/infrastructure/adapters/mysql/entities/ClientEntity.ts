@@ -17,6 +17,12 @@ export class ClientEntity {
   @Column()
   passwordHashed!: string;
 
+  @Column({ default: 'client' })
+  role!: string; // 'client' | 'director' | 'advisor'
+
+  @Column({ default: false })
+  isBanned!: boolean;
+
   @Column({ default: false })
   isVerified!: boolean;
 

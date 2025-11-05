@@ -6,6 +6,8 @@ export class Client {
         private lastName: string,
         private email: string,
         private passwordHashed: string,
+        private role: 'client' | 'director' | 'advisor' = 'client',
+        private isBanned: boolean = false,
         private isVerified: boolean = false,
         private accountIds: string[] = [] 
     ) {}
@@ -44,5 +46,23 @@ export class Client {
     }
     public getPasswordHash(): string {
         return this.passwordHashed;
+    }
+    public getRole(): 'client' | 'director' | 'advisor' {
+        return this.role;
+    }
+    public setRole(role: 'client' | 'director' | 'advisor'): void {
+        this.role = role;
+    }
+    public getIsBanned(): boolean {
+        return this.isBanned;
+    }
+    public setIsBanned(isBanned: boolean): void {
+        this.isBanned = isBanned;
+    }
+    public ban(): void {
+        this.isBanned = true;
+    }
+    public unban(): void {
+        this.isBanned = false;
     }
 }

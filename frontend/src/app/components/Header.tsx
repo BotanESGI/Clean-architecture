@@ -8,7 +8,10 @@ export default function Header() {
   const { token, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isOnDashboard = pathname === "/dashboard";
+  
+  const userRole = token ? decodeRole(token) : null;
+  const dashboardPath = userRole === 'director' ? '/director/dashboard' : '/dashboard';
+  const isOnDashboard = pathname === "/dashboard" || pathname === "/director/dashboard";
 
   const handleLogout = () => {
     logout();
@@ -38,7 +41,7 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <Link href="/dashboard" className="btn-secondary">Tableau de bord</Link>
+                  <Link href={dashboardPath} className="btn-secondary">Tableau de bord</Link>
                   <button onClick={handleLogout} className="btn-secondary">Déconnexion</button>
                 </>
               )
@@ -55,3 +58,14 @@ export default function Header() {
   );
 }
 
+function decodeRole(token: string | null): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(atob(parts[1]));
+    return payload?.role ?? null;
+  } catch {
+    return null;
+  }
+}
