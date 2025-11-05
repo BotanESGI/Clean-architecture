@@ -24,6 +24,9 @@ h1, h2, h3 {
 /* Keep generic input reset minimal, specialize with .input-dark below */
 input, select, textarea { @apply rounded-lg w-full transition; }
 
+/* Textarea specific styling */
+textarea { @apply py-3; }
+
 /* Dark neon input style */
 .input-dark { @apply bg-card/60 border border-white/10 text-text placeholder:text-muted/60 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/60 transition; }
 /* Minimal variant: only bottom border */

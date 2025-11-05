@@ -8,7 +8,7 @@ export default function Header() {
   const { token, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isOnDashboard = pathname === "/dashboard";
+  const isOnDashboard = pathname?.startsWith("/dashboard");
 
   const handleLogout = () => {
     logout();
@@ -33,7 +33,7 @@ export default function Header() {
             {token ? (
               isOnDashboard ? (
                 <>
-                  <button className="btn-secondary">Manager profil</button>
+                  <Link href="/dashboard/contact" className="btn-secondary">Contact</Link>
                   <button onClick={handleLogout} className="btn-secondary">Déconnexion</button>
                 </>
               ) : (
