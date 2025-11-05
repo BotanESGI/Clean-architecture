@@ -45,5 +45,13 @@ services:
     depends_on:
       - mysql
 
+  mailhog:
+    image: mailhog/mailhog
+    container_name: cleanarch-mailhog
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   mysql-data:
