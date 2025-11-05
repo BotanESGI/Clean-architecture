@@ -115,8 +115,7 @@ User Action → Interface (Controller) → Use Case → Repository → Entity �
 ## 🚀 Installation et lancement
 
 ### Prérequis
-- Node.js 18+ 
-- npm ou yarn
+- Docker
 - Git
 
 ### Configuration
@@ -127,35 +126,40 @@ git clone <repository-url>
 cd Clean-architecture
 ```
 
-2. **Installer les dépendances backend**
-```bash
-npm install
-```
-
-3. **Installer les dépendances frontend**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-4. **Configurer les variables d'environnement**
+2. **Configurer les variables d'environnement**
 
 Créer un fichier `.env` à la racine du projet :
 ```env
-# Backend
+# File: .env (backend)
 PORT=4000
-JWT_SECRET=votre_secret_jwt_ici
+JWT_SECRET=f3b2c9d8e1a7f6c4b5d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1
 JWT_EXPIRES_IN=1d
-FRONT_ORIGIN=http://localhost:3001
 
-# Email (optionnel en dev)
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=votre_email@example.com
-SMTP_PASS=votre_mot_de_passe
-FRONTEND_BASE_URL=http://localhost:3001
+# CORS / URLs
+FRONT_ORIGIN=http://localhost:3000
+FRONTEND_BASE_URL=http://localhost:3000
 APP_BASE_URL=http://localhost:4000
+
+# SMTP vers MailHog (dans Docker)
+SMTP_FROM=no-reply@example.local
+SMTP_HOST=mailhog
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+
+# MySQL
+MYSQL_ROOT_PASSWORD=your_root_password
+MYSQL_DATABASE=clean_architecture_db
+MYSQL_USER=app_user
+MYSQL_PASSWORD=app_password
+
+# DB (backend)
+DB_HOST=mysql
+DB_PORT=3306
+DB_USER=app_user
+DB_PASSWORD=app_password
+DB_NAME=clean_architecture_db
 ```
 
 Créer un fichier `frontend/.env.local` :
@@ -165,35 +169,21 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ### Lancement en développement
 
-**Terminal 1 - Backend** (à la racine du projet) :
+**Terminal** (à la racine du projet) :
 ```bash
-PORT=4000 FRONT_ORIGIN=http://localhost:3001 npm run dev
+docker-compose up --build
 ```
+- Le serveur backend sera accessible sur `http://localhost:4000`
+- Le frontend sera accessible sur `http://localhost:3000`
+- Mailhog sera accessible sur `http://localhost:8025`
+- Adminer sera accessible sur `http://localhost:8080`
 
-Le serveur backend sera accessible sur `http://localhost:4000`
-
-**Terminal 2 - Frontend** (dans le dossier frontend) :
-```bash
-cd frontend
-npm run dev
-```
-
-Le frontend sera accessible sur `http://localhost:3000` (ou 3001 si 3000 est occupé)
-
-### Lancement en production
-
-**Backend** :
-```bash
-npm run build
-npm start
-```
-
-**Frontend** :
-```bash
-cd frontend
-npm run build
-npm start
-```
+### Configuration pour Adminer
+- Système	: MySQL / MariaDB
+- Serveur	mysql
+- Utilisateur	app_user
+- Mot de passe	app_password
+- Base de données	clean_architecture_db
 
 ## 📋 Fonctionnalités
 
