@@ -36,5 +36,14 @@ services:
     ports:
       - "3000:3000"
 
+  adminer:
+    image: adminer
+    container_name: cleanarch-adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+
 volumes:
   mysql-data:
