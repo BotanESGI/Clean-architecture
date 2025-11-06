@@ -22,5 +22,11 @@ export class ClientEntity {
 
   @Column("simple-array", { nullable: true })
   accountIds?: string[];
+
+  @Column({ default: 'CLIENT' })
+  role!: string;
+
+  @Column({ default: false })
+  isBanned!: boolean;
 }
 

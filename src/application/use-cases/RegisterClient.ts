@@ -44,6 +44,9 @@ export class RegisterClient {
       lastName,
       email,
       passwordHash,
+      false,
+      [],
+      'CLIENT',
       false
     );
 

@@ -68,6 +68,14 @@ class MockClientRepository implements ClientRepository {
   async update(client: Client): Promise<void> {
     this.clients.set(client.getId(), client);
   }
+
+  async findAll(): Promise<Client[]> {
+    return Array.from(this.clients.values());
+  }
+
+  async delete(id: string): Promise<void> {
+    this.clients.delete(id);
+  }
 }
 
 class MockTransactionRepository implements TransactionRepository {
@@ -101,8 +109,8 @@ describe("TransferFunds", () => {
 
   it("should successfully transfer funds between two accounts", async () => {
     // Create two clients
-    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true);
-    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true);
+    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
+    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client1);
     await clientRepo.save(client2);
 
@@ -127,7 +135,7 @@ describe("TransferFunds", () => {
   });
 
   it("should throw error when trying to transfer to a non-existent account (not in bank)", async () => {
-    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true);
+    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client1);
 
     const account1 = new Account("acc1", "client1", "FR7612345678901234567890123", "Compte 1", 1000);
@@ -140,7 +148,7 @@ describe("TransferFunds", () => {
   });
 
   it("should throw error when from account does not exist", async () => {
-    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true);
+    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client2);
 
     const account2 = new Account("acc2", "client2", "FR7698765432109876543210987", "Compte 2", 500);
@@ -152,8 +160,8 @@ describe("TransferFunds", () => {
   });
 
   it("should throw error when amount is invalid", async () => {
-    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true);
-    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true);
+    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
+    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client1);
     await clientRepo.save(client2);
 
@@ -172,7 +180,7 @@ describe("TransferFunds", () => {
   });
 
   it("should throw error when trying to transfer to the same account", async () => {
-    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true);
+    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client1);
 
     const account1 = new Account("acc1", "client1", "FR7612345678901234567890123", "Compte 1", 1000);
@@ -184,8 +192,8 @@ describe("TransferFunds", () => {
   });
 
   it("should throw error when insufficient balance", async () => {
-    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true);
-    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true);
+    const client1 = new Client("client1", "John", "Doe", "john@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
+    const client2 = new Client("client2", "Jane", "Smith", "jane@example.com", await bcrypt.hash("password", 10), true, [], 'CLIENT', false);
     await clientRepo.save(client1);
     await clientRepo.save(client2);
 

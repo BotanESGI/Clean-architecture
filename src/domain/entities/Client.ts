@@ -7,7 +7,9 @@ export class Client {
         private email: string,
         private passwordHashed: string,
         private isVerified: boolean = false,
-        private accountIds: string[] = [] 
+        private accountIds: string[] = [],
+        private role: string = 'CLIENT',
+        private isBanned: boolean = false
     ) {}
     public getId(): string {
         return this.id;
@@ -44,5 +46,14 @@ export class Client {
     }
     public getPasswordHash(): string {
         return this.passwordHashed;
+    }
+    public getRole(): string {
+        return this.role;
+    }
+    public getIsBanned(): boolean {
+        return this.isBanned;
+    }
+    public setIsBanned(banned: boolean): void {
+        this.isBanned = banned;
     }
 }
