@@ -195,8 +195,8 @@ docker-compose up --build
 - Investissement : en tant que client, je dois pouvoir enregistrer des ordres d’achat ou de vente d’une action. Une action est un titre financier d’appartenance à une entreprise côté sur un marché financier. La liste des actions disponibles est définie par le directeur de la banque. Le cours est calculé en fonction du prix d’équilibre entre un prix de vente et un prix d’achat, selon le carnet d’ordre global pour une action. Étant donné que nous sommes une banque moderne, nous n’avons pas de frais d’arbitrage. Les seuls frais sont de 1€ à l’achat, comme à la vente.
   
 ### Directeur de banque :
-- Authentification : en tant que directeur de banque, je dois pouvoir m’authentifier.
-- Gestion des comptes : en tant que directeur de banque, je dois pouvoir créer, modifier ou supprimer un compte client ou le bannir.
+- Authentification : en tant que directeur de banque, je dois pouvoir m’authentifier.✅
+- Gestion des comptes : en tant que directeur de banque, je dois pouvoir créer, modifier ou supprimer un compte client ou le bannir.✅
 - Fixation du taux d’épargne : en tant que directeur de la banque, je dois pouvoir effectuer une modification du taux d’épargne disponible pour les comptes d’épargne. Ce faisant, tous les clients ayant actuellement un compte d’épargne doivent avoir une notification en ce qui concerne le changement du taux qui a été fixé lors de la modification.
 - Actions : en tant que directeur de banque, je suis celui qui créé, modifie et supprime les actions. Je n’ai pas la possibilité de modifier le cours d’une action, mais c’est moi qui décide quelles sont les actions disponibles de celles qui ne le sont pas. Les clients sont propriétaires de leur actions, contrairement à certains de nos concurrents qui ne le disent pas, nous l’affichons fièrement.
   
