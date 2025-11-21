@@ -1,3 +1,5 @@
+export type AccountType = "checking" | "savings";
+
 export class Account {
   constructor(
     public readonly id: string,
@@ -6,6 +8,7 @@ export class Account {
     private _name: string = "Compte courant",
     public balance: number = 0,
     private _isClosed: boolean = false,
+    public readonly accountType: AccountType = "checking",
     public readonly createdAt: Date = new Date()
   ) {}
 

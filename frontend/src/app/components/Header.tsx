@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
@@ -8,7 +9,13 @@ export default function Header() {
   const { token, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const isOnDashboard = pathname?.startsWith("/dashboard");
+
+  // Éviter l'erreur d'hydratation en ne rendant le contenu conditionnel qu'après le montage
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -30,7 +37,13 @@ export default function Header() {
             <a href="#contact" className="hover:text-text">Contact</a>
           </nav>
           <div className="flex items-center gap-3">
-            {token ? (
+            {!mounted ? (
+              // Pendant le SSR, afficher un état neutre pour éviter l'erreur d'hydratation
+              <>
+                <div className="btn-secondary opacity-0">Se connecter</div>
+                <div className="btn-primary opacity-0">Explorer</div>
+              </>
+            ) : token ? (
               isOnDashboard ? (
                 <>
                   <Link href="/dashboard/contact" className="btn-secondary">Contact</Link>

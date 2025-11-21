@@ -2,6 +2,7 @@ import { DataSource } from "typeorm";
 import { ClientEntity } from "./entities/ClientEntity";
 import { AccountEntity } from "./entities/AccountEntity";
 import { TransactionEntity } from "./entities/TransactionEntity";
+import { BankSettingsEntity } from "./entities/BankSettingsEntity";
 
 const fallbackHost = "cleanarch-mysql";
 const fallbackPort = 3306;
@@ -16,7 +17,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || fallbackUser,
   password: process.env.DB_PASSWORD || fallbackPassword,
   database: process.env.DB_NAME || fallbackDb,
-  entities: [ClientEntity, AccountEntity, TransactionEntity],
+  entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity],
   synchronize: true, // Crée automatiquement les tables (à désactiver en production)
   logging: process.env.NODE_ENV === "development",
 });

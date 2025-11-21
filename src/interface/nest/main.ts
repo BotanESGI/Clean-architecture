@@ -24,6 +24,18 @@ import { TransferFunds } from "../../application/use-cases/TransferFunds";
 import { VerifyBeneficiary } from "../../application/use-cases/VerifyBeneficiary";
 import { ListTransactions } from "../../application/use-cases/ListTransactions";
 import { TransactionController } from "../controllers/TransactionController";
+import { DirectorController } from "../controllers/DirectorController";
+import { ListAllClients } from "../../application/use-cases/ListAllClients";
+import { BanClient } from "../../application/use-cases/BanClient";
+import { UnbanClient } from "../../application/use-cases/UnbanClient";
+import { UpdateClientInfo } from "../../application/use-cases/UpdateClientInfo";
+import { DeleteClient } from "../../application/use-cases/DeleteClient";
+import { CreateClientByDirector } from "../../application/use-cases/CreateClientByDirector";
+import { SetSavingsRate } from "../../application/use-cases/SetSavingsRate";
+import { MySQLBankSettingsRepository } from "../../infrastructure/adapters/mysql/MySQLBankSettingsRepository";
+import { CalculateDailyInterest } from "../../application/use-cases/CalculateDailyInterest";
+import { DailyInterestJob } from "../../infrastructure/jobs/DailyInterestJob";
+import { SavingsController } from "../controllers/SavingsController";
 
 // --- Initialiser la base de données ---
 async function initializeDatabase() {
@@ -46,6 +58,7 @@ async function startServer() {
   const clientRepository = new MySQLClientRepository(AppDataSource);
   const accountRepository = new MySQLAccountRepository(AppDataSource);
   const transactionRepository = new MySQLTransactionRepository(AppDataSource);
+  const bankSettingsRepository = new MySQLBankSettingsRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -67,6 +80,30 @@ async function startServer() {
   // --- Use cases (Transactions) ---
   const listTransactions = new ListTransactions(transactionRepository);
 
+  // --- Use cases (Savings) ---
+  const setSavingsRate = new SetSavingsRate(
+    bankSettingsRepository,
+    accountRepository,
+    clientRepository,
+    emailService
+  );
+  const calculateDailyInterest = new CalculateDailyInterest(
+    accountRepository,
+    bankSettingsRepository,
+    transactionRepository
+  );
+
+  // --- Use cases (Director) ---
+  const listAllClients = new ListAllClients(clientRepository);
+  const banClient = new BanClient(clientRepository);
+  const unbanClient = new UnbanClient(clientRepository);
+  const updateClientInfo = new UpdateClientInfo(clientRepository);
+  const deleteClient = new DeleteClient(clientRepository);
+  const createClientByDirector = new CreateClientByDirector(
+    clientRepository,
+    accountRepository
+  );
+
   // --- Controller (Accounts) ---
   const accountController = new AccountController(
     createAccount,
@@ -80,6 +117,26 @@ async function startServer() {
 
   // --- Controller (Transactions) ---
   const transactionController = new TransactionController(listTransactions);
+
+  // --- Controller (Director) ---
+  const directorController = new DirectorController(
+    listAllClients,
+    banClient,
+    unbanClient,
+    updateClientInfo,
+    deleteClient,
+    createClientByDirector,
+    setSavingsRate,
+    bankSettingsRepository
+  );
+
+  // --- Controller (Savings) ---
+  const savingsController = new SavingsController(bankSettingsRepository);
+
+  // --- Job d'intérêts quotidiens ---
+  const dailyInterestJob = new DailyInterestJob(calculateDailyInterest);
+  // Démarrer le job (exécute tous les jours)
+  dailyInterestJob.start();
 
   // --- App ---
   const app = express();
@@ -130,6 +187,29 @@ async function startServer() {
 
   // --- Routes Transactions ---
   app.get("/transactions", transactionController.list);
+
+  // --- Routes Savings (public) ---
+  app.get("/savings-rate", savingsController.getSavingsRate);
+
+  // --- Routes Director ---
+  app.post("/director/clients", directorController.createClient);
+  app.get("/director/clients", directorController.listClients);
+  app.post("/director/clients/:id/ban", directorController.ban);
+  app.post("/director/clients/:id/unban", directorController.unban);
+  app.put("/director/clients/:id", directorController.update);
+  app.delete("/director/clients/:id", directorController.remove);
+  app.get("/director/savings-rate", directorController.getSavingsRate);
+  app.post("/director/savings-rate", directorController.updateSavingsRate);
+
+  // --- Routes Admin (pour tests) ---
+  app.post("/admin/calculate-interest", async (_req, res) => {
+    try {
+      await dailyInterestJob.execute();
+      res.status(200).json({ message: "Calcul des intérêts exécuté avec succès" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
 
   // --- Health endpoint ---
   app.get("/health", (_req, res) => {

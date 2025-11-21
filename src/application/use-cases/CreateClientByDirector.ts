@@ -43,7 +43,9 @@ export class CreateClientByDirector {
       client.getId(),
       iban,
       "Compte courant",
-      0
+      0,
+      false,
+      "checking"
     );
     await this.accountRepository.create(account);
 

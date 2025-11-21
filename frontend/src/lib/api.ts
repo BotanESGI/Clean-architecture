@@ -50,10 +50,10 @@ export const api = {
     request<{ id: string; firstname: string; lastname: string; email: string; verified: boolean }>(`/clients/${id}`, "GET"),
 
   listAccounts: (clientId: string) =>
-    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>>(`/accounts?clientId=${clientId}`, "GET"),
+    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>>(`/accounts?clientId=${clientId}`, "GET"),
 
   createAccount: (clientId: string, name?: string, type?: "checking" | "savings") =>
-    request<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>(`/accounts`, "POST", { clientId, name, type }),
+    request<{ id: string; clientId: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>(`/accounts`, "POST", { clientId, name, type }),
 
   deleteAccount: (accountId: string) =>
     request<{ success: boolean }>(`/accounts/${accountId}`, "DELETE"),
@@ -66,6 +66,9 @@ export const api = {
 
   verifyBeneficiary: (iban: string, firstName?: string, lastName?: string) =>
     request<{ exists: boolean; verified?: boolean; firstName?: string; lastName?: string; accountName?: string; message?: string }>("/beneficiaries/verify", "POST", { iban, firstName, lastName }),
+
+  getSavingsRate: () =>
+    request<{ rate: number }>("/savings-rate", "GET"),
 
   // Director APIs
   director: {
@@ -86,6 +89,12 @@ export const api = {
     
     deleteClient: (clientId: string, token: string) =>
       request<{ message: string }>(`/director/clients/${clientId}`, "DELETE", undefined, token),
+    
+    getSavingsRate: (token: string) =>
+      request<{ rate: number }>("/director/savings-rate", "GET", undefined, token),
+    
+    setSavingsRate: (rate: number, token: string) =>
+      request<{ message: string; rate: number }>("/director/savings-rate", "POST", { rate }, token),
   },
 };
 

@@ -73,4 +73,45 @@ export class RealEmailService implements EmailService {
       console.error("Erreur lors de l'envoi de l'email :", err);
     }
   }
+
+  async sendSavingsRateChangeNotification(to: string, rate: number): Promise<void> {
+    const from = process.env.SMTP_FROM || "no-reply@example.local";
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #2c3e50;">Modification du taux d'épargne</h2>
+        <p>Bonjour,</p>
+        <p>Nous vous informons que le taux d'épargne de votre compte d'épargne a été modifié.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 18px; font-weight: bold; color: #27ae60;">
+            Nouveau taux d'épargne : ${rate.toFixed(2)}%
+          </p>
+        </div>
+        <p>Ce nouveau taux s'appliquera dès aujourd'hui pour le calcul des intérêts quotidiens.</p>
+        <p style="margin-top: 20px; font-size: 12px; color: #888;">
+          Cordialement,<br>
+          L'équipe Banque AVENIR
+        </p>
+      </div>
+    `;
+
+    console.log(`\n📧 Notification de changement de taux d'épargne envoyée à ${to} (${rate}%)`);
+
+    if (!this.transporter) {
+      console.warn("[EmailService] SMTP non configuré - email non envoyé");
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: `"Banque AVENIR" <${from}>`,
+        to,
+        subject: "Modification du taux d'épargne - Banque AVENIR",
+        html: htmlContent,
+      });
+      console.log(`Email de notification envoyé à ${to}`);
+    } catch (err) {
+      console.error("Erreur lors de l'envoi de l'email :", err);
+    }
+  }
 }

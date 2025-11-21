@@ -34,7 +34,9 @@ services:
       - "4000:4000"
     command: ["npm", "start"]
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: cleanarch-frontend
     env_file:
       - ./frontend/.env.local
@@ -42,6 +44,12 @@ services:
       - backend
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - WATCHPACK_POLLING=true
 
   adminer:
     image: adminer

@@ -5,6 +5,8 @@ import { UnbanClient } from "../../application/use-cases/UnbanClient";
 import { UpdateClientInfo } from "../../application/use-cases/UpdateClientInfo";
 import { DeleteClient } from "../../application/use-cases/DeleteClient";
 import { CreateClientByDirector } from "../../application/use-cases/CreateClientByDirector";
+import { SetSavingsRate } from "../../application/use-cases/SetSavingsRate";
+import { BankSettingsRepository } from "../../application/repositories/BankSettingsRepository";
 
 export class DirectorController {
   constructor(
@@ -13,7 +15,9 @@ export class DirectorController {
     private unbanClient: UnbanClient,
     private updateClientInfo: UpdateClientInfo,
     private deleteClient: DeleteClient,
-    private createClientByDirector: CreateClientByDirector
+    private createClientByDirector: CreateClientByDirector,
+    private setSavingsRate: SetSavingsRate,
+    private bankSettingsRepo: BankSettingsRepository
   ) {}
 
   createClient = async (req: Request, res: Response) => {
@@ -75,6 +79,35 @@ export class DirectorController {
       const { id } = req.params;
       await this.deleteClient.execute(id);
       res.status(200).json({ message: "Client supprimé avec succès" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  };
+
+  getSavingsRate = async (_req: Request, res: Response) => {
+    try {
+      const rate = await this.bankSettingsRepo.getSavingsRate();
+      res.status(200).json({ 
+        rate: rate * 100 // Retourner en pourcentage
+      });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  };
+
+  updateSavingsRate = async (req: Request, res: Response) => {
+    try {
+      const { rate } = req.body;
+      if (rate === undefined || rate === null) {
+        return res.status(400).json({ message: "Le taux est requis" });
+      }
+      // Convertir le pourcentage en décimal si nécessaire (ex: 1.5 pour 1.5%)
+      const rateDecimal = rate > 1 ? rate / 100 : rate;
+      await this.setSavingsRate.execute(rateDecimal);
+      res.status(200).json({ 
+        message: "Taux d'épargne mis à jour avec succès",
+        rate: rateDecimal * 100 // Retourner en pourcentage
+      });
     } catch (err: any) {
       res.status(400).json({ message: err.message });
     }
