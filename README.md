@@ -155,12 +155,14 @@ MYSQL_USER=app_user
 MYSQL_PASSWORD=app_password
 
 # DB (backend)
-DB_HOST=mysql
+DB_HOST=cleanarch-mysql
 DB_PORT=3306
 DB_USER=app_user
 DB_PASSWORD=app_password
 DB_NAME=clean_architecture_db
 ```
+
+> Pour un déploiement via `docker-compose`, ces valeurs assurent que le backend pointe vers le service MySQL interne (`cleanarch-mysql:3306`) avec l’utilisateur `app_user` et la base `clean_architecture_db`. Vérifiez que votre fichier `.env` contient bien ces clés avant de lancer les conteneurs.
 
 Créer un fichier `frontend/.env.local` :
 ```env

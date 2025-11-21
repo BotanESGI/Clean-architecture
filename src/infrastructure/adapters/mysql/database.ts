@@ -3,13 +3,19 @@ import { ClientEntity } from "./entities/ClientEntity";
 import { AccountEntity } from "./entities/AccountEntity";
 import { TransactionEntity } from "./entities/TransactionEntity";
 
+const fallbackHost = "cleanarch-mysql";
+const fallbackPort = 3306;
+const fallbackUser = "app_user";
+const fallbackPassword = "app_password";
+const fallbackDb = "clean_architecture_db";
+
 export const AppDataSource = new DataSource({
   type: "mysql",
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "3306"),
-  username: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "banque_avenir",
+  host: process.env.DB_HOST || fallbackHost,
+  port: parseInt(process.env.DB_PORT || fallbackPort.toString(), 10),
+  username: process.env.DB_USER || fallbackUser,
+  password: process.env.DB_PASSWORD || fallbackPassword,
+  database: process.env.DB_NAME || fallbackDb,
   entities: [ClientEntity, AccountEntity, TransactionEntity],
   synchronize: true, // Crée automatiquement les tables (à désactiver en production)
   logging: process.env.NODE_ENV === "development",
