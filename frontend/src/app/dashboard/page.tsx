@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 
 type Transaction = {
@@ -29,24 +30,28 @@ type Beneficiary = {
 
 export default function DashboardPage() {
   const { token } = useAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientName, setClientName] = useState<string>("Client");
-  const [ibanInfo, setIbanInfo] = useState<{ iban: string; name: string; createdAt?: string } | null>(null);
+  const [ibanInfo, setIbanInfo] = useState<{ iban: string; name: string; accountType?: string; createdAt?: string } | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const { show } = useToast();
   const [modalBanner, setModalBanner] = useState("");
-  const [accounts, setAccounts] = useState<Array<{ id: string; iban: string; name: string; balance: number; createdAt?: string }>>([]);
+  const [accounts, setAccounts] = useState<Array<{ id: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [displayedCardIndex, setDisplayedCardIndex] = useState<number>(0);
   const [activityHistory, setActivityHistory] = useState<ActivityHistoryItem[]>([]);
   const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountType, setNewAccountType] = useState<"checking" | "savings">("checking");
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
+  const [savingsRate, setSavingsRate] = useState<number | null>(null);
 
   // Load account data (transactions and activity history) for a specific account
   const loadAccountData = useCallback(async (accountId: string) => {
@@ -99,8 +104,21 @@ export default function DashboardPage() {
     
     setActiveAccountId(accountId);
     setBalance(account.balance);
-    setIbanInfo({ iban: account.iban, name: account.name, createdAt: account.createdAt });
+    setIbanInfo({ 
+      iban: account.iban, 
+      name: account.name, 
+      accountType: account.accountType,
+      createdAt: account.createdAt 
+    });
     setDisplayedCardIndex(accounts.findIndex(a => a.id === accountId));
+    
+    // Reload savings rate when switching accounts
+    try {
+      const rateData = await api.getSavingsRate();
+      setSavingsRate(rateData.rate);
+    } catch (err) {
+      console.error("Error loading savings rate:", err);
+    }
     
     await loadAccountData(accountId);
     
@@ -108,26 +126,52 @@ export default function DashboardPage() {
     show(`Compte sélectionné: ${accountName}`, "success");
   }, [accounts, loadAccountData, show]);
 
+  // Marquer le composant comme monté côté client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Vérifier l'authentification (uniquement après le montage)
+  useEffect(() => {
+    if (!mounted) return; // Attendre que le composant soit monté
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+  }, [mounted, token, router]);
+
   // Initial load
   useEffect(() => {
+    if (!token) return; // Ne pas charger si pas de token
+    
     async function load() {
       try {
         const clientId = decodeClientId(token);
-        if (!clientId) return;
+        if (!clientId) {
+          router.push("/login");
+          return;
+        }
         
-        const [profile, list] = await Promise.all([
+        const [profile, list, rateData] = await Promise.all([
           api.getClient(clientId),
           api.listAccounts(clientId),
+          api.getSavingsRate().catch(() => ({ rate: null })),
         ]);
         
         setClientName(`${profile.firstname} ${profile.lastname}`);
         setAccounts(list);
+        setSavingsRate(rateData.rate);
         
         const primary = list[0];
         if (primary) {
           setActiveAccountId(primary.id);
           setBalance(primary.balance);
-          setIbanInfo({ iban: primary.iban, name: primary.name, createdAt: primary.createdAt || undefined });
+          setIbanInfo({ 
+            iban: primary.iban, 
+            name: primary.name, 
+            accountType: primary.accountType,
+            createdAt: primary.createdAt || undefined 
+          });
           setDisplayedCardIndex(0);
           await loadAccountData(primary.id);
         }
@@ -143,6 +187,15 @@ export default function DashboardPage() {
     }
   }, [token, loadAccountData, show]);
 
+  // Reload savings rate when account modal opens
+  useEffect(() => {
+    if (showAccountModal) {
+      api.getSavingsRate()
+        .then(rateData => setSavingsRate(rateData.rate))
+        .catch(err => console.error("Error loading savings rate:", err));
+    }
+  }, [showAccountModal]);
+
   // Polling for real-time updates
   useEffect(() => {
     if (!activeAccountId || !token) return;
@@ -155,6 +208,14 @@ export default function DashboardPage() {
         // Refresh accounts list to get updated balances
         const list = await api.listAccounts(clientId);
         setAccounts(list);
+        
+        // Refresh savings rate
+        try {
+          const rateData = await api.getSavingsRate();
+          setSavingsRate(rateData.rate);
+        } catch (err) {
+          console.error("Error loading savings rate:", err);
+        }
         
         const currentAccount = list.find(a => a.id === activeAccountId);
         if (currentAccount) {
@@ -205,6 +266,11 @@ export default function DashboardPage() {
 
   const displayedAccount = accounts[displayedCardIndex] || accounts.find(a => a.id === activeAccountId) || accounts[0];
 
+  // Ne pas afficher le contenu si le composant n'est pas monté ou si l'utilisateur n'est pas authentifié
+  if (!mounted || !token) {
+    return null;
+  }
+
   return (
     <>
     <div className="space-y-8">
@@ -224,7 +290,12 @@ export default function DashboardPage() {
             <p className="text-muted text-sm">Solde principal</p>
             <p className="text-3xl font-extrabold mt-1">{formatCurrency(balance)}</p>
           </div>
-          <span className="pill">Compte courant</span>
+          <span className="pill">
+            {(() => {
+              const currentAccount = accounts.find(a => a.id === activeAccountId);
+              return currentAccount?.accountType === "savings" ? "Compte d'épargne" : "Compte courant";
+            })()}
+          </span>
         </div>
         <div className="stat">
           <div>
@@ -332,7 +403,8 @@ export default function DashboardPage() {
                         <BankCard 
                           balance={displayedAccount.balance} 
                           holder={clientName} 
-                          last4={isActive ? displayedAccount.iban.slice(-4) : "****"} 
+                          last4={isActive ? displayedAccount.iban.slice(-4) : "****"}
+                          accountType={displayedAccount.accountType || "checking"}
                         />
                       </button>
                     </div>
@@ -382,63 +454,91 @@ export default function DashboardPage() {
           ) : transactions.length === 0 ? (
             <p className="text-muted text-sm py-4">Pas encore de transactions</p>
           ) : (
-            transactions.map((t) => (
-              <div key={t.id} className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-white/5 border border-white/10" />
-                  <div>
-                    <p className="font-medium">{t.label}</p>
-                    <p className="text-xs text-muted">{new Date(t.date).toLocaleDateString()}</p>
+            transactions.map((t) => {
+              const isInterest = t.label.includes("Intérêts quotidiens");
+              return (
+                <div key={t.id} className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full border flex items-center justify-center ${
+                      isInterest 
+                        ? "bg-green-500/10 border-green-500/30 text-green-400" 
+                        : "bg-white/5 border-white/10"
+                    }`}>
+                      {isInterest ? "💰" : ""}
+                    </div>
+                    <div>
+                      <p className="font-medium">{t.label}</p>
+                      <p className="text-xs text-muted">{new Date(t.date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className={t.amount < 0 ? "text-red-400" : isInterest ? "text-green-400" : "text-primary"}>
+                    {t.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(t.amount))}
                   </div>
                 </div>
-                <div className={t.amount < 0 ? "text-red-400" : "text-primary"}>
-                  {t.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(t.amount))}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
     </div>
 
     {/* Account Info Modal */}
-    {showAccountModal && ibanInfo && (
-      <Modal onClose={() => setShowAccountModal(false)}>
-        {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
-        <h3 className="font-semibold mb-4">Informations du compte</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between"><span className="text-muted">Titulaire</span><span className="font-medium">{clientName}</span></div>
-          <div className="flex items-center justify-between"><span className="text-muted">Type</span><span className="font-medium">{ibanInfo.name ?? "Compte courant"}</span></div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted">IBAN</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{ibanInfo.iban}</span>
-              <button type="button" className="icon-btn" aria-label="Copier l'IBAN" onClick={async () => {
-                try {
-                  await navigator.clipboard?.writeText(ibanInfo.iban!);
-                  setModalBanner("IBAN copié dans le presse‑papiers");
-                  setTimeout(() => setModalBanner(""), 1800);
-                  show("IBAN copié dans le presse‑papiers", "success");
-                } catch {
-                  setModalBanner("Impossible de copier l'IBAN");
-                  setTimeout(() => setModalBanner(""), 1800);
-                  show("Impossible de copier l'IBAN", "error");
-                }
-              }}>
-                <CopyIcon />
-              </button>
+    {showAccountModal && displayedAccount && (() => {
+      // Utiliser le compte actuellement affiché
+      const currentAccount = displayedAccount;
+      
+      return (
+        <Modal onClose={() => setShowAccountModal(false)}>
+          {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
+          <h3 className="font-semibold mb-4">Informations du compte</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between"><span className="text-muted">Titulaire</span><span className="font-medium">{clientName}</span></div>
+            <div className="flex items-center justify-between"><span className="text-muted">Nom</span><span className="font-medium">{currentAccount.name ?? "Compte courant"}</span></div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted">Type</span>
+              <span className="font-medium">
+                {currentAccount.accountType === "savings" ? "Compte d'épargne" : "Compte courant"}
+              </span>
             </div>
+            {currentAccount.accountType === "savings" && savingsRate !== null && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted">Taux d'épargne</span>
+                <span className="font-medium text-green-400">
+                  {savingsRate.toFixed(2)}% / an
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted">IBAN</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{currentAccount.iban}</span>
+                <button type="button" className="icon-btn" aria-label="Copier l'IBAN" onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText(currentAccount.iban);
+                    setModalBanner("IBAN copié dans le presse‑papiers");
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show("IBAN copié dans le presse‑papiers", "success");
+                  } catch {
+                    setModalBanner("Impossible de copier l'IBAN");
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show("Impossible de copier l'IBAN", "error");
+                  }
+                }}>
+                  <CopyIcon />
+                </button>
+              </div>
+            </div>
+            {currentAccount.createdAt && (
+              <div className="flex items-center justify-between"><span className="text-muted">Date de création</span><span className="font-medium">{new Date(currentAccount.createdAt).toLocaleDateString("fr-FR")}</span></div>
+            )}
+            <div className="flex items-center justify-between"><span className="text-muted">Solde</span><span className="font-medium">{formatCurrency(currentAccount.balance)}</span></div>
           </div>
-          {ibanInfo.createdAt && (
-            <div className="flex items-center justify-between"><span className="text-muted">Date de création</span><span className="font-medium">{new Date(ibanInfo.createdAt).toLocaleDateString("fr-FR")}</span></div>
-          )}
-          <div className="flex items-center justify-between"><span className="text-muted">Solde</span><span className="font-medium">{formatCurrency(balance)}</span></div>
-        </div>
-        <div className="mt-6 text-right">
-          <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
-        </div>
-      </Modal>
-    )}
+          <div className="mt-6 text-right">
+            <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
+          </div>
+        </Modal>
+      );
+    })()}
 
     {/* Beneficiary Modal */}
     {showBeneficiaryModal && activeAccountId && (
@@ -506,15 +606,35 @@ export default function DashboardPage() {
 
     {/* Create Account Modal */}
     {showCreateAccountModal && (
-      <Modal onClose={() => setShowCreateAccountModal(false)}>
+      <Modal onClose={() => {
+        setShowCreateAccountModal(false);
+        setNewAccountName("");
+        setNewAccountType("checking");
+      }}>
         <h3 className="font-semibold mb-4">Créer un nouveau compte</h3>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Type de compte</label>
+            <select
+              className="input-minimal w-full"
+              value={newAccountType}
+              onChange={(e) => setNewAccountType(e.target.value as "checking" | "savings")}
+            >
+              <option value="checking">Compte courant</option>
+              <option value="savings">Compte d'épargne</option>
+            </select>
+            {newAccountType === "savings" && (
+              <p className="text-xs text-muted mt-1">
+                💰 Votre compte d'épargne sera rémunéré quotidiennement au taux en vigueur
+              </p>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium mb-2">Nom du compte</label>
             <input
               type="text"
               className="input-minimal w-full"
-              placeholder="Compte courant"
+              placeholder={newAccountType === "savings" ? "Compte d'épargne" : "Compte courant"}
               value={newAccountName}
               onChange={(e) => setNewAccountName(e.target.value)}
             />
@@ -523,12 +643,13 @@ export default function DashboardPage() {
             <button className="btn-secondary flex-1" onClick={() => {
               setShowCreateAccountModal(false);
               setNewAccountName("");
+              setNewAccountType("checking");
             }}>Annuler</button>
             <button className="btn-primary flex-1" onClick={async () => {
               try {
                 const clientId = decodeClientId(token);
                 if (!clientId) return;
-                const created = await api.createAccount(clientId, newAccountName || undefined);
+                const created = await api.createAccount(clientId, newAccountName || undefined, newAccountType);
                 const accountName = created.name || "Compte";
                 const list = [created, ...accounts];
                 setAccounts(list);
@@ -540,15 +661,16 @@ export default function DashboardPage() {
                 const newHistory: ActivityHistoryItem[] = [{
                   id: `create-${Date.now()}`,
                   date: new Date().toISOString(),
-                  label: `Compte "${accountName}" créé`,
+                  label: `${newAccountType === "savings" ? "Compte d'épargne" : "Compte"} "${accountName}" créé`,
                   type: "create",
                 }, ...activityHistory];
                 setActivityHistory(newHistory);
                 localStorage.setItem(`activityHistory_${created.id}`, JSON.stringify(newHistory));
                 
-                show("Compte créé", "success");
+                show(newAccountType === "savings" ? "Compte d'épargne créé" : "Compte créé", "success");
                 setShowCreateAccountModal(false);
                 setNewAccountName("");
+                setNewAccountType("checking");
               } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : "Erreur lors de la création";
                 show(message, "error");
@@ -578,14 +700,17 @@ function decodeClientId(token: string | null): string | null {
   }
 }
 
-function BankCard({ balance, holder, last4 }: { balance: number; holder: string; last4: string }) {
+function BankCard({ balance, holder, last4, accountType }: { balance: number; holder: string; last4: string; accountType?: string }) {
+  const isSavings = accountType === "savings";
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5 bg-gradient-to-br from-white/5 to-white/0">
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/20 blur-3xl" />
+      <div className={`absolute -right-10 -top-10 h-32 w-32 rounded-full ${isSavings ? "bg-green-500/20" : "bg-primary/20"} blur-3xl`} />
       <div className="relative">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted">Carte Visa</span>
-          <span className="pill">Active</span>
+          <span className="text-sm text-muted">{isSavings ? "💰 Compte d'épargne" : "Carte Visa"}</span>
+          <span className={`pill ${isSavings ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}`}>
+            {isSavings ? "Rémunéré" : "Active"}
+          </span>
         </div>
         <p className="text-lg font-semibold mt-6 tracking-widest">**** **** **** {last4}</p>
         <div className="mt-6 flex items-center justify-between text-sm">
