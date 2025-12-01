@@ -47,7 +47,6 @@ export class MySQLClientRepository implements ClientRepository {
     entity.email = client.getEmail();
     entity.passwordHashed = client.getPasswordHash();
     entity.isVerified = client.getIsVerified();
-    entity.accountIds = client.getAccountIds().length > 0 ? client.getAccountIds() : undefined;
     entity.role = client.getRole();
     entity.isBanned = client.getIsBanned();
     return entity;
@@ -61,7 +60,7 @@ export class MySQLClientRepository implements ClientRepository {
       entity.email,
       entity.passwordHashed,
       entity.isVerified,
-      entity.accountIds || [],
+      [], // accountIds n'est plus stocké en base, on peut le récupérer via la relation avec accounts
       entity.role || 'CLIENT',
       entity.isBanned || false
     );
