@@ -18,7 +18,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || fallbackPassword,
   database: process.env.DB_NAME || fallbackDb,
   entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity],
-  synchronize: true, // Crée automatiquement les tables (à désactiver en production)
+  synchronize: false, // Désactivé car init.sql gère le schéma
   logging: process.env.NODE_ENV === "development",
 });
 

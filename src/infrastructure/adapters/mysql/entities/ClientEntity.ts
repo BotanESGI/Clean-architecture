@@ -5,28 +5,28 @@ export class ClientEntity {
   @PrimaryColumn()
   id!: string;
 
-  @Column()
+  @Column({ name: "first_name" })
   firstName!: string;
 
-  @Column()
+  @Column({ name: "last_name" })
   lastName!: string;
 
   @Column({ unique: true })
   email!: string;
 
-  @Column()
+  @Column({ name: "password_hash" })
   passwordHashed!: string;
 
-  @Column({ default: false })
+  @Column({ name: "is_verified", default: false })
   isVerified!: boolean;
 
-  @Column("simple-array", { nullable: true })
-  accountIds?: string[];
+  @Column({ name: "verification_token", nullable: true })
+  verificationToken?: string;
 
   @Column({ default: 'CLIENT' })
   role!: string;
 
-  @Column({ default: false })
+  @Column({ name: "is_banned", default: false })
   isBanned!: boolean;
 }
 

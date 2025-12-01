@@ -6,7 +6,7 @@ export class TransactionEntity {
   @PrimaryColumn()
   id!: string;
 
-  @Column()
+  @Column({ name: "accountId" })
   accountId!: string;
 
   @ManyToOne(() => AccountEntity, (account) => account.transactions)
@@ -22,13 +22,13 @@ export class TransactionEntity {
   @Column()
   label!: string;
 
-  @Column({ nullable: true })
+  @Column({ name: "relatedAccountId", nullable: true })
   relatedAccountId?: string;
 
-  @Column({ nullable: true })
+  @Column({ name: "relatedClientName", nullable: true })
   relatedClientName?: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "createdAt" })
   createdAt!: Date;
 }
 
