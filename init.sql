@@ -1,24 +1,26 @@
 -- Table des clients
 CREATE TABLE IF NOT EXISTS clients (
-                                       id VARCHAR(36) PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'CLIENT',
+    is_banned BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),
     INDEX idx_verification_token (verification_token)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table des comptes
 CREATE TABLE IF NOT EXISTS accounts (
-                                        id VARCHAR(36) PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY,
     client_id VARCHAR(36) NOT NULL,
     iban VARCHAR(34) UNIQUE NOT NULL,
-    balance DECIMAL(15, 2) DEFAULT 0.00,
+    balance DECIMAL(10, 2) DEFAULT 0.00,
     custom_name VARCHAR(100),
     account_type ENUM('checking', 'savings') DEFAULT 'checking',
     is_closed BOOLEAN DEFAULT FALSE,
@@ -27,31 +29,25 @@ CREATE TABLE IF NOT EXISTS accounts (
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
     INDEX idx_client_id (client_id),
     INDEX idx_iban (iban)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Migration: Ajouter la colonne account_type si elle n'existe pas
-ALTER TABLE accounts 
-ADD COLUMN IF NOT EXISTS account_type ENUM('checking', 'savings') DEFAULT 'checking';
-
--- Migration: Ajouter la colonne is_closed si elle n'existe pas
-ALTER TABLE accounts 
-ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT FALSE;
+-- Migration: Supprimer l'ancienne table transactions si elle existe avec l'ancien schéma
+DROP TABLE IF EXISTS transactions;
 
 -- Table des transactions
 CREATE TABLE IF NOT EXISTS transactions (
-                                            id VARCHAR(36) PRIMARY KEY,
-    from_account_id VARCHAR(36),
-    to_account_id VARCHAR(36),
-    amount DECIMAL(15, 2) NOT NULL,
-    transaction_type ENUM('DEBIT', 'CREDIT', 'TRANSFER') NOT NULL,
-    description VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (from_account_id) REFERENCES accounts(id) ON DELETE SET NULL,
-    FOREIGN KEY (to_account_id) REFERENCES accounts(id) ON DELETE SET NULL,
-    INDEX idx_from_account (from_account_id),
-    INDEX idx_to_account (to_account_id),
-    INDEX idx_created_at (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    id VARCHAR(36) PRIMARY KEY,
+    accountId VARCHAR(36) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    relatedAccountId VARCHAR(36),
+    relatedClientName VARCHAR(255),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (accountId) REFERENCES accounts(id) ON DELETE CASCADE,
+    INDEX idx_accountId (accountId),
+    INDEX idx_createdAt (createdAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table des paramètres de la banque
 CREATE TABLE IF NOT EXISTS bank_settings (

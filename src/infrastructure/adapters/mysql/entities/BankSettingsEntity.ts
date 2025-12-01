@@ -5,13 +5,13 @@ export class BankSettingsEntity {
   @PrimaryColumn({ default: "default" })
   id!: string;
 
-  @Column("decimal", { precision: 5, scale: 4, default: 0.01 })
+  @Column("decimal", { name: "savings_rate", precision: 5, scale: 4, default: 0.01 })
   savingsRate!: number; // Taux d'épargne en pourcentage (ex: 0.01 = 1%)
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt!: Date;
 }
 
