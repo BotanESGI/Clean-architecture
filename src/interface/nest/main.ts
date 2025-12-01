@@ -36,6 +36,12 @@ import { MySQLBankSettingsRepository } from "../../infrastructure/adapters/mysql
 import { CalculateDailyInterest } from "../../application/use-cases/CalculateDailyInterest";
 import { DailyInterestJob } from "../../infrastructure/jobs/DailyInterestJob";
 import { SavingsController } from "../controllers/SavingsController";
+import { MySQLStockRepository } from "../../infrastructure/adapters/mysql/MySQLStockRepository";
+import { CreateStock } from "../../application/use-cases/CreateStock";
+import { UpdateStock } from "../../application/use-cases/UpdateStock";
+import { DeleteStock } from "../../application/use-cases/DeleteStock";
+import { ListAllStocks } from "../../application/use-cases/ListAllStocks";
+import { requireDirector } from "../middlewares/requireDirector";
 
 // --- Initialiser la base de données ---
 async function initializeDatabase() {
@@ -59,6 +65,7 @@ async function startServer() {
   const accountRepository = new MySQLAccountRepository(AppDataSource);
   const transactionRepository = new MySQLTransactionRepository(AppDataSource);
   const bankSettingsRepository = new MySQLBankSettingsRepository(AppDataSource);
+  const stockRepository = new MySQLStockRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -103,6 +110,10 @@ async function startServer() {
     clientRepository,
     accountRepository
   );
+  const createStock = new CreateStock(stockRepository);
+  const updateStock = new UpdateStock(stockRepository);
+  const deleteStock = new DeleteStock(stockRepository);
+  const listAllStocks = new ListAllStocks(stockRepository);
 
   // --- Controller (Accounts) ---
   const accountController = new AccountController(
@@ -127,7 +138,11 @@ async function startServer() {
     deleteClient,
     createClientByDirector,
     setSavingsRate,
-    bankSettingsRepository
+    bankSettingsRepository,
+    createStock,
+    updateStock,
+    deleteStock,
+    listAllStocks
   );
 
   // --- Controller (Savings) ---
@@ -192,14 +207,20 @@ async function startServer() {
   app.get("/savings-rate", savingsController.getSavingsRate);
 
   // --- Routes Director ---
-  app.post("/director/clients", directorController.createClient);
-  app.get("/director/clients", directorController.listClients);
-  app.post("/director/clients/:id/ban", directorController.ban);
-  app.post("/director/clients/:id/unban", directorController.unban);
-  app.put("/director/clients/:id", directorController.update);
-  app.delete("/director/clients/:id", directorController.remove);
-  app.get("/director/savings-rate", directorController.getSavingsRate);
-  app.post("/director/savings-rate", directorController.updateSavingsRate);
+  app.post("/director/clients", requireDirector, directorController.createClient);
+  app.get("/director/clients", requireDirector, directorController.listClients);
+  app.post("/director/clients/:id/ban", requireDirector, directorController.ban);
+  app.post("/director/clients/:id/unban", requireDirector, directorController.unban);
+  app.put("/director/clients/:id", requireDirector, directorController.update);
+  app.delete("/director/clients/:id", requireDirector, directorController.remove);
+  app.get("/director/savings-rate", requireDirector, directorController.getSavingsRate);
+  app.post("/director/savings-rate", requireDirector, directorController.updateSavingsRate);
+  
+  // --- Routes Director (Actions) ---
+  app.post("/director/stocks", requireDirector, directorController.createStock);
+  app.get("/director/stocks", requireDirector, directorController.listStocks);
+  app.put("/director/stocks/:id", requireDirector, directorController.updateStock);
+  app.delete("/director/stocks/:id", requireDirector, directorController.removeStock);
 
   // --- Routes Admin (pour tests) ---
   app.post("/admin/calculate-interest", async (_req, res) => {

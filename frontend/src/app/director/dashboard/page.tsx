@@ -16,6 +16,15 @@ interface Client {
   role: string;
 }
 
+interface Stock {
+  id: string;
+  symbol: string;
+  name: string;
+  currentPrice: number;
+  isAvailable: boolean;
+  createdAt: string;
+}
+
 export default function DirectorDashboard() {
   const { token, logout } = useAuth();
   const { show } = useToast();
@@ -32,6 +41,20 @@ export default function DirectorDashboard() {
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
   const [newSavingsRate, setNewSavingsRate] = useState("");
   const [showSavingsRateModal, setShowSavingsRateModal] = useState(false);
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [showCreateStockModal, setShowCreateStockModal] = useState(false);
+  const [showEditStockModal, setShowEditStockModal] = useState(false);
+  const [editingStock, setEditingStock] = useState<Stock | null>(null);
+  const [newStock, setNewStock] = useState({
+    symbol: "",
+    name: "",
+    initialPrice: "",
+  });
+  const [editStock, setEditStock] = useState({
+    symbol: "",
+    name: "",
+    isAvailable: true,
+  });
 
   useEffect(() => {
     const role = localStorage.getItem("role");
@@ -41,6 +64,7 @@ export default function DirectorDashboard() {
     }
     loadClients();
     loadSavingsRate();
+    loadStocks();
   }, [token, router]);
 
   const loadSavingsRate = async () => {
@@ -111,6 +135,73 @@ export default function DirectorDashboard() {
     } catch (err: any) {
       show(err.message || "Erreur", "error");
     }
+  };
+
+  const loadStocks = async () => {
+    if (!token) return;
+    try {
+      const data = await api.director.listStocks(token);
+      setStocks(data.stocks);
+    } catch (err: any) {
+      show(err.message || "Erreur lors du chargement des actions", "error");
+    }
+  };
+
+  const handleCreateStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    try {
+      const payload: any = {
+        symbol: newStock.symbol.toUpperCase(),
+        name: newStock.name,
+      };
+      if (newStock.initialPrice) {
+        payload.initialPrice = parseFloat(newStock.initialPrice);
+      }
+      await api.director.createStock(payload, token);
+      show("Action créée avec succès", "success");
+      setShowCreateStockModal(false);
+      setNewStock({ symbol: "", name: "", initialPrice: "" });
+      loadStocks();
+    } catch (err: any) {
+      show(err.message || "Erreur lors de la création", "error");
+    }
+  };
+
+  const handleEditStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingStock) return;
+    try {
+      await api.director.updateStock(editingStock.id, editStock, token);
+      show("Action modifiée avec succès", "success");
+      setShowEditStockModal(false);
+      setEditingStock(null);
+      loadStocks();
+    } catch (err: any) {
+      show(err.message || "Erreur lors de la modification", "error");
+    }
+  };
+
+  const handleDeleteStock = async (stockId: string) => {
+    if (!token) return;
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette action ?")) return;
+    try {
+      await api.director.deleteStock(stockId, token);
+      show("Action supprimée", "success");
+      loadStocks();
+    } catch (err: any) {
+      show(err.message || "Erreur", "error");
+    }
+  };
+
+  const openEditModal = (stock: Stock) => {
+    setEditingStock(stock);
+    setEditStock({
+      symbol: stock.symbol,
+      name: stock.name,
+      isAvailable: stock.isAvailable,
+    });
+    setShowEditStockModal(true);
   };
 
   const handleLogout = () => {
@@ -196,6 +287,85 @@ export default function DirectorDashboard() {
             <p>• Les intérêts sont calculés quotidiennement</p>
             <p>• Tous les clients avec un compte d'épargne seront notifiés lors d'un changement</p>
           </div>
+        </div>
+      </div>
+
+      {/* Stocks Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold">Gestion des actions</h3>
+            <p className="text-sm text-muted mt-1">Créer, modifier ou supprimer des actions disponibles</p>
+          </div>
+          <button
+            onClick={() => setShowCreateStockModal(true)}
+            className="btn-primary"
+          >
+            + Créer une action
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Symbole</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Nom</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Prix actuel</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Statut</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-muted">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {stocks.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                    Aucune action disponible
+                  </td>
+                </tr>
+              ) : (
+                stocks.map((stock) => (
+                  <tr key={stock.id} className="hover:bg-white/5 transition">
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{stock.symbol}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-muted text-sm">{stock.name}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{stock.currentPrice.toFixed(2)} €</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {stock.isAvailable ? (
+                        <span className="pill bg-green-500/10 text-green-400 border-green-500/30">
+                          Disponible
+                        </span>
+                      ) : (
+                        <span className="pill bg-red-500/10 text-red-400 border-red-500/30">
+                          Indisponible
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(stock)}
+                          className="btn-secondary text-xs py-1.5 px-3"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStock(stock.id)}
+                          className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/20 transition text-xs"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -414,6 +584,140 @@ export default function DirectorDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Stock Modal */}
+      {showCreateStockModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
+            <h3 className="font-semibold mb-4">Créer une action</h3>
+            <form onSubmit={handleCreateStock} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Symbole</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={10}
+                  value={newStock.symbol}
+                  onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
+                  className="input-minimal w-full"
+                  placeholder="AAPL"
+                />
+                <p className="text-xs text-muted mt-1">Exemple: AAPL, TSLA, MSFT</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Nom</label>
+                <input
+                  type="text"
+                  required
+                  value={newStock.name}
+                  onChange={(e) => setNewStock({ ...newStock, name: e.target.value })}
+                  className="input-minimal w-full"
+                  placeholder="Apple Inc."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Prix initial (optionnel)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newStock.initialPrice}
+                  onChange={(e) => setNewStock({ ...newStock, initialPrice: e.target.value })}
+                  className="input-minimal w-full"
+                  placeholder="100.00"
+                />
+                <p className="text-xs text-muted mt-1">Le prix sera calculé automatiquement si non spécifié</p>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateStockModal(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1"
+                >
+                  Créer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Stock Modal */}
+      {showEditStockModal && editingStock && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
+            <h3 className="font-semibold mb-4">Modifier l'action</h3>
+            <form onSubmit={handleEditStock} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Symbole</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={10}
+                  value={editStock.symbol}
+                  onChange={(e) => setEditStock({ ...editStock, symbol: e.target.value.toUpperCase() })}
+                  className="input-minimal w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Nom</label>
+                <input
+                  type="text"
+                  required
+                  value={editStock.name}
+                  onChange={(e) => setEditStock({ ...editStock, name: e.target.value })}
+                  className="input-minimal w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Prix actuel</label>
+                <input
+                  type="text"
+                  disabled
+                  value={`${editingStock.currentPrice.toFixed(2)} €`}
+                  className="input-minimal w-full opacity-50 cursor-not-allowed"
+                />
+                <p className="text-xs text-muted mt-1">Le prix est calculé automatiquement selon l'offre et la demande</p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editStock.isAvailable}
+                    onChange={(e) => setEditStock({ ...editStock, isAvailable: e.target.checked })}
+                    className="w-4 h-4 rounded border-white/20 bg-white/5"
+                  />
+                  <span className="text-sm">Disponible pour les clients</span>
+                </label>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditStockModal(false);
+                    setEditingStock(null);
+                  }}
+                  className="btn-secondary flex-1"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

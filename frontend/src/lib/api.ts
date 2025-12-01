@@ -95,6 +95,18 @@ export const api = {
     
     setSavingsRate: (rate: number, token: string) =>
       request<{ message: string; rate: number }>("/director/savings-rate", "POST", { rate }, token),
+    
+    listStocks: (token: string) =>
+      request<{ stocks: Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean; createdAt: string }> }>("/director/stocks", "GET", undefined, token),
+    
+    createStock: (payload: { symbol: string; name: string; initialPrice?: number }, token: string) =>
+      request<{ message: string; stock: unknown }>("/director/stocks", "POST", payload, token),
+    
+    updateStock: (stockId: string, payload: { symbol?: string; name?: string; isAvailable?: boolean }, token: string) =>
+      request<{ message: string }>(`/director/stocks/${stockId}`, "PUT", payload, token),
+    
+    deleteStock: (stockId: string, token: string) =>
+      request<{ message: string }>(`/director/stocks/${stockId}`, "DELETE", undefined, token),
   },
 };
 
