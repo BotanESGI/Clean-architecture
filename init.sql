@@ -59,3 +59,15 @@ CREATE TABLE IF NOT EXISTS bank_settings (
 
 -- Insérer les paramètres par défaut
 INSERT IGNORE INTO bank_settings (id, savings_rate) VALUES ('default', 0.01);
+
+-- Table des actions (stocks)
+CREATE TABLE IF NOT EXISTS stocks (
+    id VARCHAR(36) PRIMARY KEY,
+    symbol VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    current_price DECIMAL(10, 2) DEFAULT 0.00,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_symbol (symbol),
+    INDEX idx_is_available (is_available)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
