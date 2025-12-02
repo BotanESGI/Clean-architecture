@@ -28,6 +28,8 @@ export default function LoginPage() {
       // Redirection selon le rôle
       if (res.role === "DIRECTOR") {
         router.push("/director/dashboard");
+      } else if (res.role === "ADVISOR") {
+        router.push("/advisor/dashboard");
       } else {
         router.push("/dashboard");
       }

@@ -42,6 +42,9 @@ import { UpdateStock } from "../../application/use-cases/UpdateStock";
 import { DeleteStock } from "../../application/use-cases/DeleteStock";
 import { ListAllStocks } from "../../application/use-cases/ListAllStocks";
 import { requireDirector } from "../middlewares/requireDirector";
+import { requireAdvisor } from "../middlewares/requireAdvisor";
+import { seedDirector } from "../../infrastructure/seeds/createDirector";
+import { seedAdvisor } from "../../infrastructure/seeds/createAdvisor";
 
 // --- Initialiser la base de données ---
 async function initializeDatabase() {
@@ -49,6 +52,9 @@ async function initializeDatabase() {
     await AppDataSource.initialize();
     console.log("✅ Base de données MySQL connectée");
     console.log(`📊 Base de données: ${process.env.DB_NAME || "banque_avenir"}`);
+    
+    await seedDirector(AppDataSource);
+    await seedAdvisor(AppDataSource);
   } catch (error) {
     console.error("❌ Erreur lors de la connexion à la base de données:", error);
     process.exit(1);
