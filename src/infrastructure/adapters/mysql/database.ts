@@ -18,13 +18,8 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || fallbackUser,
   password: process.env.DB_PASSWORD || fallbackPassword,
   database: process.env.DB_NAME || fallbackDb,
-<<<<<<< HEAD
   entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity, StockEntity],
-  synchronize: true, // Crée automatiquement les tables (à désactiver en production)
-=======
-  entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity],
-  synchronize: false, // Désactivé car init.sql gère le schéma
->>>>>>> 98931333256126c377211ddcfc1a33edd01dad4e
+  synchronize: false, 
   logging: process.env.NODE_ENV === "development",
 });
 
