@@ -199,7 +199,7 @@ docker-compose up --build
 ### Directeur de banque :
 - Authentification : en tant que directeur de banque, je dois pouvoir m’authentifier.✅
 - Gestion des comptes : en tant que directeur de banque, je dois pouvoir créer, modifier ou supprimer un compte client ou le bannir.✅
-- Fixation du taux d’épargne : en tant que directeur de la banque, je dois pouvoir effectuer une modification du taux d’épargne disponible pour les comptes d’épargne. Ce faisant, tous les clients ayant actuellement un compte d’épargne doivent avoir une notification en ce qui concerne le changement du taux qui a été fixé lors de la modification.
+- Fixation du taux d’épargne : en tant que directeur de la banque, je dois pouvoir effectuer une modification du taux d’épargne disponible pour les comptes d’épargne. Ce faisant, tous les clients ayant actuellement un compte d’épargne doivent avoir une notification en ce qui concerne le changement du taux qui a été fixé lors de la modification.✅
 - Actions : en tant que directeur de banque, je suis celui qui créé, modifie et supprime les actions. Je n’ai pas la possibilité de modifier le cours d’une action, mais c’est moi qui décide quelles sont les actions disponibles de celles qui ne le sont pas. Les clients sont propriétaires de leur actions, contrairement à certains de nos concurrents qui ne le disent pas, nous l’affichons fièrement.✅
   
 ### Conseiller de banque :

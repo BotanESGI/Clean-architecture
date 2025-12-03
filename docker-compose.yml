@@ -50,6 +50,7 @@ services:
       - /app/.next
     environment:
       - WATCHPACK_POLLING=true
+    command: sh -c "npm install && npm run dev"
 
   adminer:
     image: adminer
