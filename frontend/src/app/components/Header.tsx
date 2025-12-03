@@ -41,7 +41,7 @@ export default function Header() {
               // Pendant le SSR, afficher un état neutre pour éviter l'erreur d'hydratation
               <>
                 <div className="btn-secondary opacity-0">Se connecter</div>
-                <div className="btn-primary opacity-0">Explorer</div>
+                <div className="btn-primary opacity-0">Inscription</div>
               </>
             ) : token ? (
               isOnDashboard ? (
@@ -58,7 +58,7 @@ export default function Header() {
             ) : (
               <>
                 <Link href="/login" className="btn-secondary">Se connecter</Link>
-                <Link href="/register" className="btn-primary">Explorer</Link>
+                <Link href="/register" className="btn-primary">Inscription</Link>
               </>
             )}
           </div>
