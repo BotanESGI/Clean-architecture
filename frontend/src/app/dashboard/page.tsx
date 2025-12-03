@@ -160,7 +160,25 @@ export default function DashboardPage() {
         
         setClientName(`${profile.firstname} ${profile.lastname}`);
         setAccounts(list);
-        setSavingsRate(rateData.rate);
+        
+        // Initialiser le dernier taux connu et vérifier les changements
+        if (rateData.rate !== null) {
+          const lastRateKey = `lastSavingsRate_${clientId}`;
+          const lastRate = localStorage.getItem(lastRateKey);
+          const hasSavingsAccount = list.some(acc => acc.accountType === "savings" && !acc.isClosed);
+          
+          // Si le taux a changé depuis la dernière visite et que l'utilisateur a un compte d'épargne
+          if (lastRate !== null && parseFloat(lastRate) !== rateData.rate && hasSavingsAccount) {
+            show(
+              `📢 Le taux d'épargne a été modifié : ${parseFloat(lastRate).toFixed(2)}% → ${rateData.rate.toFixed(2)}%`,
+              "info"
+            );
+          }
+          
+          // Sauvegarder le taux actuel
+          localStorage.setItem(lastRateKey, rateData.rate.toString());
+          setSavingsRate(rateData.rate);
+        }
         
         const primary = list[0];
         if (primary) {
@@ -209,10 +227,45 @@ export default function DashboardPage() {
         const list = await api.listAccounts(clientId);
         setAccounts(list);
         
-        // Refresh savings rate
+        // Refresh savings rate and check for changes
         try {
           const rateData = await api.getSavingsRate();
-          setSavingsRate(rateData.rate);
+          const newRate = rateData.rate;
+          
+          // Vérifier si le taux a changé
+          const lastRateKey = `lastSavingsRate_${clientId}`;
+          const lastRate = localStorage.getItem(lastRateKey);
+          
+          // Vérifier si l'utilisateur a un compte d'épargne
+          const hasSavingsAccount = list.some(acc => acc.accountType === "savings" && !acc.isClosed);
+          
+          if (lastRate !== null && parseFloat(lastRate) !== newRate && hasSavingsAccount) {
+            // Le taux a changé et l'utilisateur a un compte d'épargne
+            show(
+              `📢 Le taux d'épargne a été modifié : ${parseFloat(lastRate).toFixed(2)}% → ${newRate.toFixed(2)}%`,
+              "info"
+            );
+            
+            // Ajouter à l'historique d'activité
+            if (activeAccountId) {
+              try {
+                const stored = localStorage.getItem(`activityHistory_${activeAccountId}`);
+                const existingHistory: ActivityHistoryItem[] = stored ? JSON.parse(stored) : [];
+                const newHistory: ActivityHistoryItem[] = [{
+                  id: `rate_change_${Date.now()}`,
+                  date: new Date().toISOString(),
+                  label: `Taux d'épargne modifié : ${newRate.toFixed(2)}%`,
+                  type: "transfer_in",
+                }, ...existingHistory];
+                setActivityHistory(newHistory);
+                localStorage.setItem(`activityHistory_${activeAccountId}`, JSON.stringify(newHistory));
+              } catch {}
+            }
+          }
+          
+          // Sauvegarder le nouveau taux
+          localStorage.setItem(lastRateKey, newRate.toString());
+          setSavingsRate(newRate);
         } catch (err) {
           console.error("Error loading savings rate:", err);
         }
