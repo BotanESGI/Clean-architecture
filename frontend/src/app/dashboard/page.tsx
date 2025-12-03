@@ -355,10 +355,14 @@ export default function DashboardPage() {
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex <= 0 ? "opacity-40 pointer-events-none" : "")}
               aria-label="Précédent"
-              onClick={() => {
+              onClick={async () => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.max(0, displayedCardIndex - 1);
-                setDisplayedCardIndex(newIdx);
+                const account = accounts[newIdx];
+                if (account) {
+                  setDisplayedCardIndex(newIdx);
+                  await switchAccount(account.id);
+                }
               }}
             >
               ◀
@@ -415,10 +419,14 @@ export default function DashboardPage() {
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex >= accounts.length - 1 ? "opacity-40 pointer-events-none" : "")}
               aria-label="Suivant"
-              onClick={() => {
+              onClick={async () => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.min(accounts.length - 1, displayedCardIndex + 1);
-                setDisplayedCardIndex(newIdx);
+                const account = accounts[newIdx];
+                if (account) {
+                  setDisplayedCardIndex(newIdx);
+                  await switchAccount(account.id);
+                }
               }}
             >
               ▶
