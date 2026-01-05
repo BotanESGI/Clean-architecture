@@ -1,10 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 type PageProps = {
   searchParams?: Promise<{ email?: string | string[] }>;
 };
 
 export default async function RegisterSentPage({ searchParams }: PageProps) {
+  const { t } = useTranslation();
+
   const params = searchParams ? await searchParams : undefined;
   const raw = params?.email;
   const email = Array.isArray(raw) ? raw[0] : raw;
@@ -12,14 +18,13 @@ export default async function RegisterSentPage({ searchParams }: PageProps) {
   return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="card max-w-lg w-full text-center">
-          <h1 className="text-2xl font-bold mb-2">Vérifiez votre boîte mail</h1>
+          <h1 className="text-2xl font-bold mb-2">{t("register.checkEmailTitle")}</h1>
           <p className="text-muted">
-            Nous avons envoyé un lien de confirmation {email ? `à ${email}` : "par email"}. Cliquez dessus pour
-            activer votre compte.
+            {t("register.checkEmailDescription")} {email ? `à ${email}` : t("register.checkEmailDescription2")}. {t("register.checkEmailDescription3")}
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <Link href="/" className="btn-secondary">Retour à l’accueil</Link>
-            <Link href="/login" className="btn-primary">Se connecter</Link>
+            <Link href="/" className="btn-secondary">{t("register.backToHome")}</Link>
+            <Link href="/login" className="btn-primary">{t("nav.login")}</Link>
           </div>
         </div>
       </div>

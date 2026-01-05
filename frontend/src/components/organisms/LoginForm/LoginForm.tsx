@@ -9,6 +9,7 @@ import { Alert } from "../../atoms/Alert";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "../../../hooks/useTranslation";
 import api from "../../../lib/api";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ export function LoginForm() {
   const { setToken } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const {
     register,
@@ -36,9 +38,9 @@ export function LoginForm() {
       localStorage.setItem("token", res.token);
       localStorage.setItem("role", res.role);
       setToken(res.token);
-      setMessage("Connexion réussie !");
+      setMessage(t("auth.loginSuccess") + " !");
       setIsSuccess(true);
-      show("Connexion réussie", "success");
+      show(t("auth.loginSuccess"), "success");
 
       // Redirection selon le rôle
       if (res.role === "DIRECTOR") {
@@ -49,7 +51,7 @@ export function LoginForm() {
         router.push("/dashboard");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors de la connexion";
+      const msg = err instanceof Error ? err.message : t("auth.loginError");
       setMessage(msg);
       setIsSuccess(false);
       show(msg, "error");
@@ -63,21 +65,21 @@ export function LoginForm() {
       )}
       
       <FormField
-        label="Email"
+        label={t("auth.email")}
         type="email"
         {...register("email")}
         error={errors.email}
       />
       
       <FormField
-        label="Mot de passe"
+        label={t("auth.password")}
         type="password"
         {...register("password")}
         error={errors.password}
       />
       
       <Button type="submit" isLoading={isSubmitting} className="w-full">
-        Se connecter
+        {t("nav.login")}
       </Button>
     </form>
   );

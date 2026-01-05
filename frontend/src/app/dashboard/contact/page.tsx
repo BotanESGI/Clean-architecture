@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 export default function ContactPage() {
   const router = useRouter();
   const { token } = useAuth();
   const { show } = useToast();
+  const { t } = useTranslation();
   
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -30,12 +32,12 @@ export default function ContactPage() {
     e.preventDefault();
     
     if (!subject.trim()) {
-      show("Veuillez entrer un objet", "error");
+      show(t("contact.subjectRequired"), "error");
       return;
     }
     
     if (!message.trim()) {
-      show("Veuillez entrer un message", "error");
+      show(t("contact.messageRequired"), "error");
       return;
     }
 
@@ -45,11 +47,11 @@ export default function ContactPage() {
       // Pour l'instant, on simule juste un envoi
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      show("Message envoyé avec succès", "success");
+      show(t("contact.sendSuccess"), "success");
       setSubject("");
       setMessage("");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erreur lors de l'envoi du message";
+      const message = err instanceof Error ? err.message : t("contact.sendError");
       show(message, "error");
     } finally {
       setLoading(false);
@@ -64,14 +66,14 @@ export default function ContactPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold">Contactez votre conseiller</h1>
-          <p className="text-muted text-sm mt-1">Envoyez un message à votre conseiller bancaire</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold">{t("contact.contactAdvisor")}</h1>
+          <p className="text-muted text-sm mt-1">{t("contact.contactDescription")}</p>
         </div>
         <button
           onClick={() => router.push("/dashboard")}
           className="btn-secondary"
         >
-          Retour au tableau de bord
+          {t("contact.backToDashboard")}
         </button>
       </div>
 
@@ -80,11 +82,11 @@ export default function ContactPage() {
         {/* Colonne gauche : Historique des conversations */}
         <div className="lg:col-span-1 card flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Conversations</h3>
+            <h3 className="font-semibold">{t("contact.conversations")}</h3>
             <button
               onClick={() => setSelectedConversation(null)}
               className="icon-btn"
-              aria-label="Nouvelle conversation"
+              aria-label={t("contact.newConversation")}
             >
               +
             </button>
@@ -92,8 +94,8 @@ export default function ContactPage() {
           <div className="flex-1 overflow-y-auto space-y-2">
             {conversations.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted text-sm">Aucune conversation</p>
-                <p className="text-muted text-xs mt-2">Commencez une nouvelle conversation</p>
+                <p className="text-muted text-sm">{t("contact.noConversations")}</p>
+                <p className="text-muted text-xs mt-2">{t("contact.startNewConversation")}</p>
               </div>
             ) : (
               conversations.map((conv) => (
@@ -131,12 +133,12 @@ export default function ContactPage() {
             <div className="flex-1 flex flex-col">
               <div className="border-b border-white/10 pb-4 mb-4">
                 <h3 className="font-semibold">
-                  {conversations.find(c => c.id === selectedConversation)?.subject || "Conversation"}
+                  {conversations.find(c => c.id === selectedConversation)?.subject || t("contact.conversation")}
                 </h3>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <p className="text-muted text-sm text-center py-8">
-                  Les messages de la conversation apparaîtront ici une fois la logique du chat implémentée.
+                  {t("contact.chatNotImplemented")}
                 </p>
               </div>
               <div className="border-t border-white/10 pt-4 mt-4">
@@ -144,7 +146,7 @@ export default function ContactPage() {
                   <input
                     type="text"
                     className="input-minimal flex-1"
-                    placeholder="Tapez votre message..."
+                    placeholder={t("contact.typeMessage")}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     required
@@ -154,7 +156,7 @@ export default function ContactPage() {
                     className="btn-primary"
                     disabled={loading}
                   >
-                    {loading ? "Envoi..." : "Envoyer"}
+                    {loading ? t("contact.sending") : t("contact.send")}
                   </button>
                 </form>
               </div>
@@ -165,21 +167,21 @@ export default function ContactPage() {
               <h3 className="font-semibold mb-4">Nouveau message</h3>
               <form onSubmit={handleSubmit} className="flex-1 flex flex-col space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Objet</label>
+                  <label className="block text-sm font-medium mb-2">{t("contact.subject")}</label>
                   <input
                     type="text"
                     className="input-minimal w-full"
-                    placeholder="Ex: Question sur mon compte"
+                    placeholder={t("contact.subjectPlaceholder")}
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     required
                   />
                 </div>
                 <div className="flex-1 flex flex-col">
-                  <label className="block text-sm font-medium mb-2">Message</label>
+                  <label className="block text-sm font-medium mb-2">{t("contact.message")}</label>
                   <textarea
                     className="input-minimal w-full flex-1 resize-none"
-                    placeholder="Votre message..."
+                    placeholder={t("contact.messagePlaceholder")}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     required
@@ -192,14 +194,14 @@ export default function ContactPage() {
                     onClick={() => router.push("/dashboard")}
                     disabled={loading}
                   >
-                    Annuler
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="submit"
                     className="btn-primary flex-1"
                     disabled={loading}
                   >
-                    {loading ? "Envoi..." : "Envoyer le message"}
+                    {loading ? t("contact.sending") : t("contact.sendMessage")}
                   </button>
                 </div>
               </form>

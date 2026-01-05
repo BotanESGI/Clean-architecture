@@ -8,6 +8,7 @@ import { Button } from "../../atoms/Button";
 import { Alert } from "../../atoms/Alert";
 import { useToast } from "../../../contexts/ToastContext";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "../../../hooks/useTranslation";
 import api from "../../../lib/api";
 import { useState } from "react";
 
@@ -16,6 +17,7 @@ export function RegisterForm() {
   const [message, setMessage] = useState("");
   const { show } = useToast();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const {
     register,
@@ -42,13 +44,13 @@ export function RegisterForm() {
     
     try {
       const res = await api.register(data);
-      const msg = res.message + " Vérifiez votre email pour confirmer votre compte.";
+      const msg = res.message + " " + t("auth.checkEmailConfirm");
       setMessage(msg);
       setIsSuccess(true);
-      show("Inscription réussie. Vérifiez votre email.", "success");
+      show(t("auth.registerSuccess"), "success");
       router.push(`/register/sent?email=${encodeURIComponent(data.email)}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors de l'inscription";
+      const msg = err instanceof Error ? err.message : t("auth.registerError");
       setMessage(msg);
       setIsSuccess(false);
       show(msg, "error");
@@ -62,21 +64,21 @@ export function RegisterForm() {
       )}
       
       <FormField
-        label="Prénom"
+        label={t("auth.firstName")}
         type="text"
         {...register("firstname")}
         error={errors.firstname}
       />
       
       <FormField
-        label="Nom"
+        label={t("auth.lastName")}
         type="text"
         {...register("lastname")}
         error={errors.lastname}
       />
       
       <FormField
-        label="Email"
+        label={t("auth.email")}
         type="email"
         {...register("email")}
         error={errors.email}
@@ -84,22 +86,22 @@ export function RegisterForm() {
       
       <div className="field">
         <FormField
-          label="Mot de passe"
+          label={t("auth.password")}
           type="password"
           {...register("password")}
           error={errors.password}
         />
         {!errors.password && (
-          <p className="helper">8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 spécial.</p>
+          <p className="helper">{t("auth.passwordRequirements")}</p>
         )}
       </div>
       
       <ul className="text-xs text-muted grid grid-cols-2 gap-2">
-        <li className={requirements.length ? "text-text" : "text-muted"}>8+ caractères</li>
-        <li className={requirements.upper ? "text-text" : "text-muted"}>1 majuscule</li>
-        <li className={requirements.lower ? "text-text" : "text-muted"}>1 minuscule</li>
-        <li className={requirements.digit ? "text-text" : "text-muted"}>1 chiffre</li>
-        <li className={requirements.special ? "text-text" : "text-muted"}>1 caractère spécial</li>
+        <li className={requirements.length ? "text-text" : "text-muted"}>{t("auth.passwordRequirementLength")}</li>
+        <li className={requirements.upper ? "text-text" : "text-muted"}>{t("auth.passwordRequirementUpper")}</li>
+        <li className={requirements.lower ? "text-text" : "text-muted"}>{t("auth.passwordRequirementLower")}</li>
+        <li className={requirements.digit ? "text-text" : "text-muted"}>{t("auth.passwordRequirementDigit")}</li>
+        <li className={requirements.special ? "text-text" : "text-muted"}>{t("auth.passwordRequirementSpecial")}</li>
       </ul>
       
       <Button 
@@ -108,7 +110,7 @@ export function RegisterForm() {
         className="w-full disabled:opacity-50" 
         disabled={!passwordValid}
       >
-        S&apos;inscrire
+        {t("auth.signUp")}
       </Button>
     </form>
   );

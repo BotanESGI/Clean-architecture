@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "../../../hooks/useTranslation";
 import api from "../../../lib/api";
 
 interface Client {
@@ -29,6 +30,7 @@ export default function DirectorDashboard() {
   const { token, logout } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const { t } = useTranslation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -83,7 +85,7 @@ export default function DirectorDashboard() {
       const data = await api.director.listClients(token);
       setClients(data.clients);
     } catch (err: any) {
-      show(err.message || "Erreur lors du chargement", "error");
+      show(err.message || t("director.loadingError"), "error");
     } finally {
       setLoading(false);
     }
@@ -94,12 +96,12 @@ export default function DirectorDashboard() {
     if (!token) return;
     try {
       await api.director.createClient(newClient, token);
-      show("Client créé avec succès", "success");
+      show(t("director.clientCreated"), "success");
       setShowCreateModal(false);
       setNewClient({ firstName: "", lastName: "", email: "", password: "" });
       loadClients();
     } catch (err: any) {
-      show(err.message || "Erreur lors de la création", "error");
+      show(err.message || t("director.createError"), "error");
     }
   };
 
@@ -107,10 +109,10 @@ export default function DirectorDashboard() {
     if (!token) return;
     try {
       await api.director.banClient(clientId, token);
-      show("Client banni", "success");
+      show(t("director.clientBanned"), "success");
       loadClients();
     } catch (err: any) {
-      show(err.message || "Erreur", "error");
+      show(err.message || t("director.deleteError"), "error");
     }
   };
 
@@ -118,22 +120,22 @@ export default function DirectorDashboard() {
     if (!token) return;
     try {
       await api.director.unbanClient(clientId, token);
-      show("Client débanni", "success");
+      show(t("director.clientUnbanned"), "success");
       loadClients();
     } catch (err: any) {
-      show(err.message || "Erreur", "error");
+      show(err.message || t("director.deleteError"), "error");
     }
   };
 
   const handleDelete = async (clientId: string) => {
     if (!token) return;
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce client ?")) return;
+    if (!confirm(t("director.deleteClientConfirm"))) return;
     try {
       await api.director.deleteClient(clientId, token);
-      show("Client supprimé", "success");
+      show(t("director.clientDeleted"), "success");
       loadClients();
     } catch (err: any) {
-      show(err.message || "Erreur", "error");
+      show(err.message || t("director.deleteError"), "error");
     }
   };
 
@@ -143,7 +145,7 @@ export default function DirectorDashboard() {
       const data = await api.director.listStocks(token);
       setStocks(data.stocks);
     } catch (err: any) {
-      show(err.message || "Erreur lors du chargement des actions", "error");
+      show(err.message || t("director.stocksLoadingError"), "error");
     }
   };
 
@@ -159,12 +161,12 @@ export default function DirectorDashboard() {
         payload.initialPrice = parseFloat(newStock.initialPrice);
       }
       await api.director.createStock(payload, token);
-      show("Action créée avec succès", "success");
+      show(t("director.stockCreated"), "success");
       setShowCreateStockModal(false);
       setNewStock({ symbol: "", name: "", initialPrice: "" });
       loadStocks();
     } catch (err: any) {
-      show(err.message || "Erreur lors de la création", "error");
+      show(err.message || t("director.createError"), "error");
     }
   };
 
@@ -173,24 +175,24 @@ export default function DirectorDashboard() {
     if (!token || !editingStock) return;
     try {
       await api.director.updateStock(editingStock.id, editStock, token);
-      show("Action modifiée avec succès", "success");
+      show(t("director.stockUpdated"), "success");
       setShowEditStockModal(false);
       setEditingStock(null);
       loadStocks();
     } catch (err: any) {
-      show(err.message || "Erreur lors de la modification", "error");
+      show(err.message || t("director.updateError"), "error");
     }
   };
 
   const handleDeleteStock = async (stockId: string) => {
     if (!token) return;
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette action ?")) return;
+    if (!confirm(t("director.deleteStockConfirm"))) return;
     try {
       await api.director.deleteStock(stockId, token);
-      show("Action supprimée", "success");
+      show(t("director.stockDeleted"), "success");
       loadStocks();
     } catch (err: any) {
-      show(err.message || "Erreur", "error");
+      show(err.message || t("director.deleteError"), "error");
     }
   };
 
@@ -211,7 +213,7 @@ export default function DirectorDashboard() {
   };
 
   if (loading) {
-    return <div className="text-center py-20">Chargement...</div>;
+    return <div className="text-center py-20">{t("common.loading")}</div>;
   }
 
   return (
@@ -219,14 +221,14 @@ export default function DirectorDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold">Dashboard <span className="text-primary">Directeur</span></h1>
-          <p className="text-muted text-sm mt-1">Gestion des clients</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold">{t("director.title")} <span className="text-primary">{t("director.director")}</span></h1>
+          <p className="text-muted text-sm mt-1">{t("director.clientManagement")}</p>
         </div>
         <button
           onClick={handleLogout}
           className="btn-secondary"
         >
-          Déconnexion
+          {t("director.logout")}
         </button>
       </div>
 
@@ -234,28 +236,28 @@ export default function DirectorDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Total Clients</p>
+            <p className="text-muted text-sm">{t("director.totalClients")}</p>
             <p className="text-3xl font-extrabold mt-1">{clients.length}</p>
           </div>
-          <span className="pill">Tous</span>
+          <span className="pill">{t("director.all")}</span>
         </div>
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Clients Actifs</p>
+            <p className="text-muted text-sm">{t("director.activeClients")}</p>
             <p className="text-2xl font-semibold mt-1 text-primary">
               {clients.filter((c) => !c.isBanned).length}
             </p>
           </div>
-          <span className="pill">Actifs</span>
+          <span className="pill">{t("director.active")}</span>
         </div>
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Clients Bannis</p>
+            <p className="text-muted text-sm">{t("director.bannedClients")}</p>
             <p className="text-2xl font-semibold mt-1 text-red-400">
               {clients.filter((c) => c.isBanned).length}
             </p>
           </div>
-          <span className="pill">Bannis</span>
+          <span className="pill">{t("director.banned")}</span>
         </div>
       </div>
 
@@ -263,29 +265,29 @@ export default function DirectorDashboard() {
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold">Taux d'épargne</h3>
-            <p className="text-sm text-muted mt-1">Gérer le taux de rémunération des comptes d'épargne</p>
+            <h3 className="font-semibold">{t("director.savingsRate")}</h3>
+            <p className="text-sm text-muted mt-1">{t("director.savingsRateDescription")}</p>
           </div>
           <button
             onClick={() => setShowSavingsRateModal(true)}
             className="btn-primary"
           >
-            Modifier le taux
+            {t("director.modifyRate")}
           </button>
         </div>
         <div className="flex items-center gap-4">
           <div className="stat flex-1">
             <div>
-              <p className="text-muted text-sm">Taux actuel</p>
+              <p className="text-muted text-sm">{t("director.currentRate")}</p>
               <p className="text-3xl font-extrabold mt-1 text-green-400">
-                {savingsRate !== null ? `${savingsRate.toFixed(2)}%` : "Chargement..."}
+                {savingsRate !== null ? `${savingsRate.toFixed(2)}%` : t("common.loading")}
               </p>
             </div>
-            <span className="pill bg-green-500/10 text-green-400 border-green-500/30">Par an</span>
+            <span className="pill bg-green-500/10 text-green-400 border-green-500/30">{t("director.perYear")}</span>
           </div>
           <div className="text-sm text-muted">
-            <p>• Les intérêts sont calculés quotidiennement</p>
-            <p>• Tous les clients avec un compte d'épargne seront notifiés lors d'un changement</p>
+            <p>{t("director.interestNote1")}</p>
+            <p>{t("director.interestNote2")}</p>
           </div>
         </div>
       </div>
@@ -294,32 +296,32 @@ export default function DirectorDashboard() {
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold">Gestion des actions</h3>
-            <p className="text-sm text-muted mt-1">Créer, modifier ou supprimer des actions disponibles</p>
+            <h3 className="font-semibold">{t("director.stockManagement")}</h3>
+            <p className="text-sm text-muted mt-1">{t("director.stockManagementDescription")}</p>
           </div>
           <button
             onClick={() => setShowCreateStockModal(true)}
             className="btn-primary"
           >
-            + Créer une action
+            + {t("director.createStock")}
           </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Symbole</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Nom</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Prix actuel</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Statut</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-muted">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.symbol")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.stockName")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.currentPrice")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.status")}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-muted">{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
               {stocks.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                    Aucune action disponible
+                    {t("director.noStocks")}
                   </td>
                 </tr>
               ) : (
@@ -337,11 +339,11 @@ export default function DirectorDashboard() {
                     <td className="px-4 py-3">
                       {stock.isAvailable ? (
                         <span className="pill bg-green-500/10 text-green-400 border-green-500/30">
-                          Disponible
+                          {t("director.available")}
                         </span>
                       ) : (
                         <span className="pill bg-red-500/10 text-red-400 border-red-500/30">
-                          Indisponible
+                          {t("director.unavailable")}
                         </span>
                       )}
                     </td>
@@ -351,13 +353,13 @@ export default function DirectorDashboard() {
                           onClick={() => openEditModal(stock)}
                           className="btn-secondary text-xs py-1.5 px-3"
                         >
-                          Modifier
+                          {t("common.edit")}
                         </button>
                         <button
                           onClick={() => handleDeleteStock(stock.id)}
                           className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/20 transition text-xs"
                         >
-                          Supprimer
+                          {t("director.delete")}
                         </button>
                       </div>
                     </td>
@@ -371,12 +373,12 @@ export default function DirectorDashboard() {
 
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Liste des clients</h3>
+        <h3 className="font-semibold">{t("director.clientList")}</h3>
         <button
           onClick={() => setShowCreateModal(true)}
           className="btn-primary"
         >
-          + Créer un client
+          + {t("director.createClient")}
         </button>
       </div>
 
@@ -386,11 +388,11 @@ export default function DirectorDashboard() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Nom</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Email</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Statut</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted">Rôle</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-muted">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("dashboard.name")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.email")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.status")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted">{t("director.role")}</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-muted">{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
@@ -405,11 +407,11 @@ export default function DirectorDashboard() {
                   <td className="px-4 py-3">
                     {client.isBanned ? (
                       <span className="pill bg-red-500/10 text-red-400 border-red-500/30">
-                        Banni
+                        {t("director.banned")}
                       </span>
                     ) : (
                       <span className="pill bg-primary/10 text-primary border-primary/30">
-                        Actif
+                        {t("director.active")}
                       </span>
                     )}
                   </td>
@@ -430,21 +432,21 @@ export default function DirectorDashboard() {
                             onClick={() => handleUnban(client.id)}
                             className="btn-secondary text-xs py-1.5 px-3"
                           >
-                            Débannir
+                            {t("director.unban")}
                           </button>
                         ) : (
                           <button
                             onClick={() => handleBan(client.id)}
                             className="px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/40 rounded-xl hover:bg-orange-500/20 transition text-xs"
                           >
-                            Bannir
+                            {t("director.ban")}
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(client.id)}
                           className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/20 transition text-xs"
                         >
-                          Supprimer
+                          {t("director.delete")}
                         </button>
                       </div>
                     )}
@@ -460,10 +462,10 @@ export default function DirectorDashboard() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h3 className="font-semibold mb-4">Créer un client</h3>
+            <h3 className="font-semibold mb-4">{t("director.createClientTitle")}</h3>
             <form onSubmit={handleCreateClient} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Prénom</label>
+                <label className="block text-sm font-medium mb-2">{t("dashboard.firstName")}</label>
                 <input
                   type="text"
                   required
@@ -473,7 +475,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Nom</label>
+                <label className="block text-sm font-medium mb-2">{t("dashboard.lastName")}</label>
                 <input
                   type="text"
                   required
@@ -483,7 +485,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+                <label className="block text-sm font-medium mb-2">{t("director.email")}</label>
                 <input
                   type="email"
                   required
@@ -493,7 +495,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Mot de passe</label>
+                <label className="block text-sm font-medium mb-2">{t("director.password")}</label>
                 <input
                   type="password"
                   required
@@ -508,13 +510,13 @@ export default function DirectorDashboard() {
                   onClick={() => setShowCreateModal(false)}
                   className="btn-secondary flex-1"
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="btn-primary flex-1"
                 >
-                  Créer
+                  {t("dashboard.createAccount")}
                 </button>
               </div>
             </form>
@@ -526,10 +528,10 @@ export default function DirectorDashboard() {
       {showSavingsRateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h3 className="font-semibold mb-4">Modifier le taux d'épargne</h3>
+            <h3 className="font-semibold mb-4">{t("director.modifySavingsRate")}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Nouveau taux (en pourcentage)</label>
+                <label className="block text-sm font-medium mb-2">{t("director.newRate")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -541,13 +543,13 @@ export default function DirectorDashboard() {
                   onChange={(e) => setNewSavingsRate(e.target.value)}
                 />
                 <p className="text-xs text-muted mt-1">
-                  Exemple: 1.5 pour 1.5% par an
+                  {t("director.rateExample")}
                 </p>
               </div>
               {savingsRate !== null && (
                 <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded text-sm text-blue-400">
-                  <p>Taux actuel: <strong>{savingsRate.toFixed(2)}%</strong></p>
-                  <p className="mt-1">Tous les clients ayant un compte d'épargne recevront une notification par email.</p>
+                  <p>{t("director.currentRateLabel")}: <strong>{savingsRate.toFixed(2)}%</strong></p>
+                  <p className="mt-1">{t("director.rateChangeNote")}</p>
                 </div>
               )}
               <div className="flex gap-3 mt-6">
@@ -558,7 +560,7 @@ export default function DirectorDashboard() {
                     setNewSavingsRate("");
                   }}
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </button>
                 <button
                   className="btn-primary flex-1"
@@ -566,21 +568,21 @@ export default function DirectorDashboard() {
                     if (!token) return;
                     const rate = parseFloat(newSavingsRate);
                     if (isNaN(rate) || rate < 0 || rate > 100) {
-                      show("Taux invalide (doit être entre 0 et 100)", "error");
+                      show(t("director.invalidRate"), "error");
                       return;
                     }
                     try {
                       await api.director.setSavingsRate(rate, token);
-                      show("Taux d'épargne mis à jour avec succès", "success");
+                      show(t("director.rateUpdated"), "success");
                       setShowSavingsRateModal(false);
                       setNewSavingsRate("");
                       await loadSavingsRate();
                     } catch (err: any) {
-                      show(err.message || "Erreur lors de la mise à jour", "error");
+                      show(err.message || t("director.rateUpdateError"), "error");
                     }
                   }}
                 >
-                  Enregistrer
+                  {t("common.save")}
                 </button>
               </div>
             </div>
@@ -592,10 +594,10 @@ export default function DirectorDashboard() {
       {showCreateStockModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h3 className="font-semibold mb-4">Créer une action</h3>
+            <h3 className="font-semibold mb-4">{t("director.createStockTitle")}</h3>
             <form onSubmit={handleCreateStock} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Symbole</label>
+                <label className="block text-sm font-medium mb-2">{t("director.stockSymbol")}</label>
                 <input
                   type="text"
                   required
@@ -605,21 +607,21 @@ export default function DirectorDashboard() {
                   className="input-minimal w-full"
                   placeholder="AAPL"
                 />
-                <p className="text-xs text-muted mt-1">Exemple: AAPL, TSLA, MSFT</p>
+                <p className="text-xs text-muted mt-1">{t("director.stockSymbolExample")}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Nom</label>
+                <label className="block text-sm font-medium mb-2">{t("director.stockName")}</label>
                 <input
                   type="text"
                   required
                   value={newStock.name}
                   onChange={(e) => setNewStock({ ...newStock, name: e.target.value })}
                   className="input-minimal w-full"
-                  placeholder="Apple Inc."
+                  placeholder={t("director.stockNameExample")}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Prix initial (optionnel)</label>
+                <label className="block text-sm font-medium mb-2">{t("director.initialPrice")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -627,9 +629,9 @@ export default function DirectorDashboard() {
                   value={newStock.initialPrice}
                   onChange={(e) => setNewStock({ ...newStock, initialPrice: e.target.value })}
                   className="input-minimal w-full"
-                  placeholder="100.00"
+                  placeholder={t("director.initialPriceExample")}
                 />
-                <p className="text-xs text-muted mt-1">Le prix sera calculé automatiquement si non spécifié</p>
+                <p className="text-xs text-muted mt-1">{t("director.priceAutoNote")}</p>
               </div>
               <div className="flex gap-3 mt-6">
                 <button
@@ -637,13 +639,13 @@ export default function DirectorDashboard() {
                   onClick={() => setShowCreateStockModal(false)}
                   className="btn-secondary flex-1"
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="btn-primary flex-1"
                 >
-                  Créer
+                  {t("dashboard.createAccount")}
                 </button>
               </div>
             </form>
@@ -655,10 +657,10 @@ export default function DirectorDashboard() {
       {showEditStockModal && editingStock && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h3 className="font-semibold mb-4">Modifier l'action</h3>
+            <h3 className="font-semibold mb-4">{t("director.editStockTitle")}</h3>
             <form onSubmit={handleEditStock} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Symbole</label>
+                <label className="block text-sm font-medium mb-2">{t("director.stockSymbol")}</label>
                 <input
                   type="text"
                   required
@@ -669,7 +671,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Nom</label>
+                <label className="block text-sm font-medium mb-2">{t("director.stockName")}</label>
                 <input
                   type="text"
                   required
@@ -679,14 +681,14 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Prix actuel</label>
+                <label className="block text-sm font-medium mb-2">{t("director.currentPriceLabel")}</label>
                 <input
                   type="text"
                   disabled
                   value={`${editingStock.currentPrice.toFixed(2)} €`}
                   className="input-minimal w-full opacity-50 cursor-not-allowed"
                 />
-                <p className="text-xs text-muted mt-1">Le prix est calculé automatiquement selon l'offre et la demande</p>
+                <p className="text-xs text-muted mt-1">{t("director.priceAutoNote2")}</p>
               </div>
               <div>
                 <label className="flex items-center gap-2">
@@ -696,7 +698,7 @@ export default function DirectorDashboard() {
                     onChange={(e) => setEditStock({ ...editStock, isAvailable: e.target.checked })}
                     className="w-4 h-4 rounded border-white/20 bg-white/5"
                   />
-                  <span className="text-sm">Disponible pour les clients</span>
+                  <span className="text-sm">{t("director.availableForClients")}</span>
                 </label>
               </div>
               <div className="flex gap-3 mt-6">
@@ -708,13 +710,13 @@ export default function DirectorDashboard() {
                   }}
                   className="btn-secondary flex-1"
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="btn-primary flex-1"
                 >
-                  Enregistrer
+                  {t("common.save")}
                 </button>
               </div>
             </form>
