@@ -348,7 +348,7 @@ Ce front sera évalué et servira de note de partiel pour la matière **NextJS**
 - Les pages **404** et **500** doivent être correctement intégrées et respecter la charte graphique de votre application.✅
 - Votre application doit être **traduite en français et en anglais**. ✅
 - Un fichier **sitemap.xml** doit être accessible pour lister les pages de votre application.
-- Au moins une **page d'accueil** avec les **metadata correctement intégrées pour le SEO**.
+- Au moins une **page d'accueil** avec les **metadata correctement intégrées pour le SEO**. ✅
 - Votre application doit avoir un **maximum de rendu côté serveur (SSR)**. ✅ (page d'accueil en Server Component)
 - Votre application doit être conçue pour utiliser un **maximum de cache**, qu'il soit applicatif ou API. ✅ (`lib/api-cache.ts`, `cachedFetch`)
 
