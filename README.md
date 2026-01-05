@@ -345,7 +345,7 @@ Ce front sera évalué et servira de note de partiel pour la matière **NextJS**
 - Votre application doit respecter une **approche Atomic Design** pour la structure de ses composants.
 - Utilisation de **contexte(s)** pour partager des states entre composants. ✅ (AuthContext, ToastContext)
 - Gestion des **formulaires avec React Hook Form** et validation avec des **schémas** (ex : *zod*). ✅
-- Les pages **404** et **500** doivent être correctement intégrées et respecter la charte graphique de votre application.
+- Les pages **404** et **500** doivent être correctement intégrées et respecter la charte graphique de votre application.✅
 - Votre application doit être **traduite en français et en anglais**. ✅
 - Un fichier **sitemap.xml** doit être accessible pour lister les pages de votre application.
 - Au moins une **page d'accueil** avec les **metadata correctement intégrées pour le SEO**.
