@@ -203,7 +203,7 @@ docker-compose up --build
 - Actions : en tant que directeur de banque, je suis celui qui créé, modifie et supprime les actions. Je n’ai pas la possibilité de modifier le cours d’une action, mais c’est moi qui décide quelles sont les actions disponibles de celles qui ne le sont pas. Les clients sont propriétaires de leur actions, contrairement à certains de nos concurrents qui ne le disent pas, nous l’affichons fièrement.✅
   
 ### Conseiller de banque :
-- Authentification : en tant que conseiller bancaire, je peux m’authentifier
+- Authentification : en tant que conseiller bancaire, je peux m’authentifier. ✅
 - Crédit : en tant que conseiller bancaire, je peux être amené à octroyer des crédit. Un crédit a un taux annuel d’intérêts à rembourser sur le capital
 restant chaque mois, une assurance (obligatoire) à un taux dont le montant est calculé sur le total du crédit accordé et prélevé sur les mensualités, et des mensualités qui correspondent au montant du crédit remboursé chaque mois. Nous utilisons la méthode de calcul du crédit à mensualité constante.
 - Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu’un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d’un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers. (frontend  ✅, backend ❌ )
