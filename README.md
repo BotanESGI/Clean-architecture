@@ -407,5 +407,5 @@ La banque AVENIR (Alliance de Valeurs Économiques et Nationales Investies Respo
 
 ## BONUS
 
-- Afficher le statut « En train d'écrire » si un client ou un conseiller est en train d'envoyer un message dans la partie « contacter un conseiller ».
-- Faire le lien entre les notifications administrateur et l'API web « notification push ».
+- Afficher le statut « En train d'écrire » si un client ou un conseiller est en train d'envoyer un message dans la partie « contacter un conseiller ». ✅
+- Faire le lien entre les notifications administrateur et l'API web « notification push ». ✅

@@ -38,11 +38,13 @@ export class PrivateMessageSocket {
       try {
         const token = socket.handshake.auth.token;
         if (!token) {
+          console.error("❌ WebSocket: Token manquant dans handshake.auth");
           return next(new Error("Token manquant"));
         }
 
         const secret = process.env.JWT_SECRET;
         if (!secret) {
+          console.error("❌ WebSocket: JWT_SECRET non configuré");
           return next(new Error("JWT_SECRET non configuré"));
         }
 
@@ -50,15 +52,27 @@ export class PrivateMessageSocket {
         const client = await this.clientRepo.findById(decoded.clientId);
         
         if (!client) {
+          console.error(`❌ WebSocket: Utilisateur introuvable pour clientId: ${decoded.clientId}`);
           return next(new Error("Utilisateur introuvable"));
         }
 
         socket.data.userId = decoded.clientId;
         socket.data.role = client.getRole();
+        console.log(`✅ WebSocket: Authentification réussie pour ${decoded.clientId} (${client.getRole()})`);
         next();
       } catch (error) {
-        next(new Error("Token invalide"));
+        const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+        console.error("❌ WebSocket: Erreur d'authentification:", errorMessage);
+        if (error instanceof jwt.JsonWebTokenError) {
+          console.error("   Type:", error.name);
+        }
+        next(new Error(`Token invalide: ${errorMessage}`));
       }
+    });
+
+    // Gérer les erreurs de connexion
+    this.io.on("connection_error", (error) => {
+      console.error("❌ WebSocket: Erreur de connexion:", error.message || error);
     });
 
     this.io.on("connection", (socket) => {
@@ -77,6 +91,8 @@ export class PrivateMessageSocket {
       // Écouter l'événement pour charger l'historique d'une conversation
       socket.on("load_conversation", async (data: { advisorId?: string; clientId?: string }) => {
         try {
+          console.log(`📨 load_conversation reçu - userId: ${userId}, role: ${role}, data:`, data);
+          
           let otherUserId: string | null = null;
           let isOtherUserOnline = false;
           
@@ -101,7 +117,8 @@ export class PrivateMessageSocket {
             console.log(`📤 Envoi conversation_loaded:`, JSON.stringify({ messagesCount: messages.length, isOtherUserOnline: response.isOtherUserOnline }));
             socket.emit("conversation_loaded", response);
           } else {
-            socket.emit("error", { message: "Paramètres invalides" });
+            console.error(`❌ Paramètres invalides - role: ${role}, advisorId: ${data.advisorId}, clientId: ${data.clientId}`);
+            socket.emit("error", { message: `Paramètres invalides - role: ${role}, advisorId: ${data.advisorId}, clientId: ${data.clientId}` });
           }
         } catch (error) {
           socket.emit("error", { message: error instanceof Error ? error.message : "Erreur" });

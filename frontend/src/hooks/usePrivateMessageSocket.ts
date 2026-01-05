@@ -51,7 +51,12 @@ export function usePrivateMessageSocket({
 
   // Initialiser la connexion WebSocket
   useEffect(() => {
-    if (!token || !userId || !advisorId) return;
+    if (!token || !userId || !advisorId || !role) {
+      console.log("⏸️ WebSocket: Paramètres manquants", { token: !!token, userId: !!userId, advisorId: !!advisorId, role });
+      return;
+    }
+
+    console.log("🔌 WebSocket: Initialisation avec", { userId, advisorId, role });
 
     const newSocket = io(BASE_URL, {
       auth: { token },
@@ -88,14 +93,21 @@ export function usePrivateMessageSocket({
       // Charger l'historique de la conversation après un court délai
       // pour s'assurer que le serveur a bien enregistré l'utilisateur
       setTimeout(() => {
-        if (advisorId) {
+        if (advisorId && role) {
+          console.log("📨 WebSocket: Chargement conversation", { role, advisorId });
           if (role === "ADVISOR") {
             // Si on est advisor, on charge avec clientId (qui est dans advisorId)
+            console.log("📨 WebSocket: Émission load_conversation avec clientId:", advisorId);
             newSocket.emit("load_conversation", { clientId: advisorId });
-          } else {
+          } else if (role === "CLIENT") {
             // Si on est client, on charge avec advisorId
+            console.log("📨 WebSocket: Émission load_conversation avec advisorId:", advisorId);
             newSocket.emit("load_conversation", { advisorId });
+          } else {
+            console.error("❌ WebSocket: Rôle invalide:", role);
           }
+        } else {
+          console.error("❌ WebSocket: Impossible de charger la conversation - paramètres manquants", { advisorId, role });
         }
       }, 200); // Augmenter légèrement le délai pour laisser le temps au serveur
     });
@@ -203,8 +215,25 @@ export function usePrivateMessageSocket({
       }
     });
 
-    newSocket.on("error", (error: { message: string }) => {
+    newSocket.on("error", (error: any) => {
       console.error("Erreur WebSocket:", error);
+      // L'erreur peut être un objet vide, vérifier aussi error.message
+      if (error?.message) {
+        console.error("Message d'erreur:", error.message);
+      }
+      if (error?.type) {
+        console.error("Type d'erreur:", error.type);
+      }
+      // Si l'erreur est liée à la connexion, mettre à jour le statut
+      setIsConnected(false);
+    });
+
+    newSocket.on("connect_error", (error: any) => {
+      console.error("Erreur de connexion WebSocket:", error);
+      if (error?.message) {
+        console.error("Message d'erreur de connexion:", error.message);
+      }
+      setIsConnected(false);
     });
 
     setSocket(newSocket);

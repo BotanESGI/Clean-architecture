@@ -91,12 +91,6 @@ export const api = {
   getUnreadCount: (token: string) =>
     request<{ count: number }>("/private-messages/unread/count", "GET", undefined, token),
 
-  // Advisor APIs
-  advisor: {
-    listConversations: (token: string) =>
-      request<{ conversations: Array<{ clientId: string; clientName: string; clientEmail: string; lastMessage: string; lastMessageDate: string; unreadCount: number }> }>("/advisor/conversations", "GET", undefined, token),
-  },
-
   // Director APIs
   director: {
     listClients: (token: string) =>
@@ -136,8 +130,13 @@ export const api = {
       request<{ message: string }>(`/director/stocks/${stockId}`, "DELETE", undefined, token),
   },
 
-  // Advisor APIs (Credits)
+  // Advisor APIs (Messagerie + Credits)
   advisor: {
+    // Messagerie
+    listConversations: (token: string) =>
+      request<{ conversations: Array<{ clientId: string; clientName: string; clientEmail: string; lastMessage: string; lastMessageDate: string; unreadCount: number }> }>("/advisor/conversations", "GET", undefined, token),
+    
+    // Credits
     listClients: (token: string) =>
       request<{ clients: Array<{ id: string; firstName: string; lastName: string; email: string; isVerified: boolean; isBanned: boolean; role: string }> }>("/advisor/clients", "GET", undefined, token),
     
