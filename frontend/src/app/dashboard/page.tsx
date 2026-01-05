@@ -293,11 +293,11 @@ export default function DashboardPage() {
             const existingIds = new Set(existingHistory.map(h => h.id));
             
             const newTransfers = txns
-              .filter(t => t.type === "transfer_in" && !existingIds.has(t.id))
-              .map(t => ({
-                id: t.id,
-                date: t.createdAt,
-                label: `${t("dashboard.transferReceived")} ${t.relatedClientName || t("dashboard.unknown")} - ${formatCurrency(t.amount)}`,
+              .filter(transaction => transaction.type === "transfer_in" && !existingIds.has(transaction.id))
+              .map(transaction => ({
+                id: transaction.id,
+                date: transaction.createdAt,
+                label: `${t("dashboard.transferReceived")} ${transaction.relatedClientName || t("dashboard.unknown")} - ${formatCurrency(transaction.amount)}`,
                 type: "transfer_in" as const,
               }));
             
@@ -517,10 +517,10 @@ export default function DashboardPage() {
           ) : transactions.length === 0 ? (
             <p className="text-muted text-sm py-4">{t("dashboard.noTransactionsYet")}</p>
           ) : (
-            transactions.map((t) => {
-              const isInterest = t.label.includes(t("dashboard.dailyInterest"));
+              transactions.map((transaction) => {
+                const isInterest = transaction.label.includes(t("dashboard.dailyInterest"));
               return (
-                <div key={t.id} className="py-3 flex items-center justify-between">
+                <div key={transaction.id} className="py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`h-9 w-9 rounded-full border flex items-center justify-center ${
                       isInterest 
@@ -530,12 +530,12 @@ export default function DashboardPage() {
                       {isInterest ? "💰" : ""}
                     </div>
                     <div>
-                      <p className="font-medium">{t.label}</p>
-                      <p className="text-xs text-muted">{new Date(t.date).toLocaleDateString()}</p>
+                      <p className="font-medium">{transaction.label}</p>
+                      <p className="text-xs text-muted">{new Date(transaction.date).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <div className={t.amount < 0 ? "text-red-400" : isInterest ? "text-green-400" : "text-primary"}>
-                    {t.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(t.amount))}
+                  <div className={transaction.amount < 0 ? "text-red-400" : isInterest ? "text-green-400" : "text-primary"}>
+                    {transaction.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(transaction.amount))}
                   </div>
                 </div>
               );

@@ -108,6 +108,32 @@ export const api = {
     deleteStock: (stockId: string, token: string) =>
       request<{ message: string }>(`/director/stocks/${stockId}`, "DELETE", undefined, token),
   },
+
+  // Advisor APIs (Credits)
+  advisor: {
+    listClients: (token: string) =>
+      request<{ clients: Array<{ id: string; firstName: string; lastName: string; email: string; isVerified: boolean; isBanned: boolean; role: string }> }>("/advisor/clients", "GET", undefined, token),
+    
+    calculateCreditPreview: (payload: { amount: number; annualInterestRate: number; durationMonths: number; insuranceRate: number }, token: string) =>
+      request<{ monthlyPayment: number; insuranceMonthlyAmount: number; totalMonthlyPayment: number; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number }>("/advisor/credits/preview", "POST", payload, token),
+    
+    createCredit: (payload: { clientId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number }, token: string) =>
+      request<{ id: string; clientId: string; advisorId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number; monthlyPayment: number; remainingCapital: number; status: string; insuranceMonthlyAmount: number; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number; createdAt: string }>("/advisor/credits", "POST", payload, token),
+    
+    listCredits: (token: string, filters?: { clientId?: string; status?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.clientId) params.append("clientId", filters.clientId);
+      if (filters?.status) params.append("status", filters.status);
+      const query = params.toString();
+      return request<{ credits: Array<{ id: string; clientId: string; advisorId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number; monthlyPayment: number; remainingCapital: number; status: string; insuranceMonthlyAmount: number; paidMonths: number; startDate?: string; nextPaymentDate?: string; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number; createdAt: string }> }>(`/advisor/credits${query ? `?${query}` : ""}`, "GET", undefined, token);
+    },
+    
+    activateCredit: (creditId: string, token: string) =>
+      request<{ message: string }>(`/advisor/credits/${creditId}/activate`, "POST", undefined, token),
+    
+    recordCreditPayment: (creditId: string, token: string) =>
+      request<{ message: string; paymentDetails: { interestAmount: number; capitalAmount: number; insuranceAmount: number; newRemainingCapital: number } }>(`/advisor/credits/${creditId}/payment`, "POST", undefined, token),
+  },
 };
 
 export default api;

@@ -38,10 +38,16 @@ import { CalculateMissingInterest } from "../../application/use-cases/CalculateM
 import { DailyInterestJob } from "../../infrastructure/jobs/DailyInterestJob";
 import { SavingsController } from "../controllers/SavingsController";
 import { MySQLStockRepository } from "../../infrastructure/adapters/mysql/MySQLStockRepository";
+import { MySQLCreditRepository } from "../../infrastructure/adapters/mysql/MySQLCreditRepository";
 import { CreateStock } from "../../application/use-cases/CreateStock";
 import { UpdateStock } from "../../application/use-cases/UpdateStock";
 import { DeleteStock } from "../../application/use-cases/DeleteStock";
 import { ListAllStocks } from "../../application/use-cases/ListAllStocks";
+import { CreateCredit } from "../../application/use-cases/CreateCredit";
+import { ActivateCredit } from "../../application/use-cases/ActivateCredit";
+import { ListCredits } from "../../application/use-cases/ListCredits";
+import { RecordCreditPayment } from "../../application/use-cases/RecordCreditPayment";
+import { CreditController } from "../controllers/CreditController";
 import { requireDirector } from "../middlewares/requireDirector";
 import { requireAdvisor } from "../middlewares/requireAdvisor";
 import { seedDirector } from "../../infrastructure/seeds/createDirector";
@@ -73,6 +79,7 @@ async function startServer() {
   const transactionRepository = new MySQLTransactionRepository(AppDataSource);
   const bankSettingsRepository = new MySQLBankSettingsRepository(AppDataSource);
   const stockRepository = new MySQLStockRepository(AppDataSource);
+  const creditRepository = new MySQLCreditRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -127,6 +134,12 @@ async function startServer() {
   const deleteStock = new DeleteStock(stockRepository);
   const listAllStocks = new ListAllStocks(stockRepository);
 
+  // --- Use cases (Credits) ---
+  const createCredit = new CreateCredit(creditRepository, accountRepository, clientRepository);
+  const activateCredit = new ActivateCredit(creditRepository, accountRepository, transactionRepository);
+  const listCredits = new ListCredits(creditRepository);
+  const recordCreditPayment = new RecordCreditPayment(creditRepository, accountRepository, transactionRepository);
+
   // --- Controller (Accounts) ---
   const accountController = new AccountController(
     createAccount,
@@ -159,6 +172,15 @@ async function startServer() {
 
   // --- Controller (Savings) ---
   const savingsController = new SavingsController(bankSettingsRepository);
+
+  // --- Controller (Credits) ---
+  const creditController = new CreditController(
+    createCredit,
+    activateCredit,
+    listCredits,
+    recordCreditPayment,
+    clientRepository
+  );
 
   // --- Job d'intérêts quotidiens ---
   const dailyInterestJob = new DailyInterestJob(calculateDailyInterest);
@@ -250,6 +272,14 @@ async function startServer() {
   app.get("/director/stocks", requireDirector, directorController.listStocks);
   app.put("/director/stocks/:id", requireDirector, directorController.updateStock);
   app.delete("/director/stocks/:id", requireDirector, directorController.removeStock);
+
+  // --- Routes Advisor (Credits) ---
+  app.get("/advisor/clients", requireAdvisor, creditController.listClients);
+  app.post("/advisor/credits/preview", requireAdvisor, creditController.calculatePreview);
+  app.post("/advisor/credits", requireAdvisor, creditController.create);
+  app.get("/advisor/credits", requireAdvisor, creditController.list);
+  app.post("/advisor/credits/:creditId/activate", requireAdvisor, creditController.activate);
+  app.post("/advisor/credits/:creditId/payment", requireAdvisor, creditController.recordPayment);
 
   // --- Routes Admin (pour tests) ---
   app.post("/admin/calculate-interest", async (_req, res) => {

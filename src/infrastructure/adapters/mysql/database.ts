@@ -4,6 +4,7 @@ import { AccountEntity } from "./entities/AccountEntity";
 import { TransactionEntity } from "./entities/TransactionEntity";
 import { BankSettingsEntity } from "./entities/BankSettingsEntity";
 import { StockEntity } from "./entities/StockEntity";
+import { CreditEntity } from "./entities/CreditEntity";
 
 const fallbackHost = "cleanarch-mysql";
 const fallbackPort = 3306;
@@ -18,7 +19,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || fallbackUser,
   password: process.env.DB_PASSWORD || fallbackPassword,
   database: process.env.DB_NAME || fallbackDb,
-  entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity, StockEntity],
+  entities: [ClientEntity, AccountEntity, TransactionEntity, BankSettingsEntity, StockEntity, CreditEntity],
   synchronize: false, 
   logging: process.env.NODE_ENV === "development",
 });
