@@ -356,6 +356,56 @@ Ce front sera évalué et servira de note de partiel pour la matière **NextJS**
 
 ## Bonus
 
-- Cache géré par un **Redis**.
+- Cache géré par un **Redis**.  
 - **Animations** sur tableaux, cards, listes, etc.
-- **Drag’n’Drop** (ex : déplacer de l’argent d’un compte à un autre).
+- **Drag'n'Drop** (ex : déplacer de l'argent d'un compte à un autre).
+
+---
+
+# # Sujet Web Temps réel 5IW :
+
+## Introduction
+
+La banque AVENIR (Alliance de Valeurs Économiques et Nationales Investies Responsablement) vous a recruté comme développeur Web afin de pouvoir l'aider à développer son métier et concurrencer les banques traditionnelles afin de pouvoir créer une application Web permettant à ses clients de gérer efficacement leur liquidités, épargne et investissement.
+
+## Fonctionnalités (18 points)
+
+### Client
+
+- **Authentification** : En tant que client, je dois pouvoir m'inscrire sur cette nouvelle plateforme. Je dois pouvoir renseigner mes informations afin de recevoir un lien me permettant de confirmer mon inscription et d'accéder à mon compte (qui sera automatiquement créé à l'inscription).
+
+- **Discussion privée** : En tant que client, je dois pouvoir contacter mon conseiller via message privés en temps réel.
+
+- **Activités et feed** : En tant que client je dois pouvoir, sur mon espace, consulter en temps réel les actualités de ma banque.
+
+### Conseiller de banque
+
+- **Activités** : En tant que conseiller, je dois pouvoir créer une nouvelle actualités consultable par les clients.
+
+- **Notification** : En tant que conseiller, je peux envoyer une notification en temps réel à l'un de mes clients. La notification doit être personnalisée en fonction du besoin.
+
+- **Discussion privée** : En tant que conseiller, je peux répondre aux clients qui m'ont contacter via message privé en temps réel.
+
+### Conseiller de banque et directeur de banque
+
+- **Discussion de groupe** : En tant que conseiller ou directeur, je dois pouvoir communiquer via une discussion de groupe avec tout le monde en temps réel. Le directeur de banque doit se démarquer visuellement dans la conversation.
+
+## Contraintes techniques
+
+1. **Langage** : Développement en TypeScript (backend et frontend).
+
+2. **Web Temps Réel** :
+   - Le système de chat doit être réalisé via web socket.
+   - Le système de Feed et de notification doit être réalisé via SSE (Server-Sent Events).
+
+3. **Fixtures** : Le projet devra avoir des fixtures et/ou des jeux de données afin de tester rapidement toutes les fonctionnalités.
+
+4. **README** : Le README de votre projet devra contenir les informations suivantes :
+   - Le Prénom, NOM et classe de toutes les personnes
+   - Toutes les étapes sur comment installer / lancer le projet
+   - Toutes les étapes pour avoir des jeux de données et les identifiants d'un compte de test (un compte utilisateur et un compte admin)
+
+## BONUS
+
+- Afficher le statut « En train d'écrire » si un client ou un conseiller est en train d'envoyer un message dans la partie « contacter un conseiller ».
+- Faire le lien entre les notifications administrateur et l'API web « notification push ».

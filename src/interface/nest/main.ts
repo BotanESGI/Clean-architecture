@@ -34,6 +34,7 @@ import { CreateClientByDirector } from "../../application/use-cases/CreateClient
 import { SetSavingsRate } from "../../application/use-cases/SetSavingsRate";
 import { MySQLBankSettingsRepository } from "../../infrastructure/adapters/mysql/MySQLBankSettingsRepository";
 import { CalculateDailyInterest } from "../../application/use-cases/CalculateDailyInterest";
+import { CalculateMissingInterest } from "../../application/use-cases/CalculateMissingInterest";
 import { DailyInterestJob } from "../../infrastructure/jobs/DailyInterestJob";
 import { SavingsController } from "../controllers/SavingsController";
 import { MySQLStockRepository } from "../../infrastructure/adapters/mysql/MySQLStockRepository";
@@ -105,6 +106,11 @@ async function startServer() {
     bankSettingsRepository,
     transactionRepository
   );
+  const calculateMissingInterest = new CalculateMissingInterest(
+    accountRepository,
+    bankSettingsRepository,
+    transactionRepository
+  );
 
   // --- Use cases (Director) ---
   const listAllClients = new ListAllClients(clientRepository);
@@ -156,7 +162,24 @@ async function startServer() {
 
   // --- Job d'intérêts quotidiens ---
   const dailyInterestJob = new DailyInterestJob(calculateDailyInterest);
-  // Démarrer le job (exécute tous les jours)
+  
+  // Calculer les intérêts manquants au démarrage (si le serveur a été redémarré)
+  try {
+    console.log("🔄 Calcul des intérêts manquants au démarrage...");
+    const result = await calculateMissingInterest.execute();
+    if (result.accountsProcessed > 0) {
+      console.log(
+        `✅ Intérêts manquants calculés: ${result.accountsProcessed} comptes traités, ` +
+        `${result.totalInterest.toFixed(2)}€ d'intérêts distribués`
+      );
+    } else {
+      console.log("✅ Aucun intérêt manquant à calculer");
+    }
+  } catch (error) {
+    console.error("⚠️ Erreur lors du calcul des intérêts manquants:", error);
+  }
+  
+  // Démarrer le job (exécute tous les jours à minuit)
   dailyInterestJob.start();
 
   // --- App ---
@@ -233,6 +256,19 @@ async function startServer() {
     try {
       await dailyInterestJob.execute();
       res.status(200).json({ message: "Calcul des intérêts exécuté avec succès" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/admin/calculate-missing-interest", async (_req, res) => {
+    try {
+      const result = await calculateMissingInterest.execute();
+      res.status(200).json({
+        message: "Calcul des intérêts manquants exécuté avec succès",
+        accountsProcessed: result.accountsProcessed,
+        totalInterest: result.totalInterest
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
