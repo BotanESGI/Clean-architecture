@@ -10,9 +10,31 @@ export default function HomeContent({ savingsRate }: HomeContentProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-24">
-      {/* HERO */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 p-8 md:p-14 bg-gradient-to-b from-white/5 to-white/0">
+    <>
+      {/* Schema.org structured data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FinancialService",
+            "name": "Banque AVENIR",
+            "description": "Plateforme bancaire en ligne sécurisée pour la gestion de comptes, virements et épargne",
+            "url": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+            "logo": `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/logo.png`,
+            "serviceType": "Banking Services",
+            "areaServed": "FR",
+            "offers": {
+              "@type": "Offer",
+              "name": "Services bancaires en ligne",
+              "description": "Comptes bancaires, virements, épargne"
+            }
+          })
+        }}
+      />
+      <div className="space-y-24">
+        {/* HERO */}
+        <section className="relative overflow-hidden rounded-2xl border border-white/10 p-8 md:p-14 bg-gradient-to-b from-white/5 to-white/0" aria-label="Section principale">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
           <div className="absolute -right-24 top-24 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
@@ -93,7 +115,8 @@ export default function HomeContent({ savingsRate }: HomeContentProps) {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 
