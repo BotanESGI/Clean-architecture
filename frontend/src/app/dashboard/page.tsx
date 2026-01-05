@@ -6,6 +6,8 @@ import { useToast } from "../../contexts/ToastContext";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "../../hooks/useTranslation";
 import api from "../../lib/api";
+import { registerServiceWorker, requestNotificationPermission } from "../../lib/notifications";
+import { decodeClientId } from "../../lib/utils";
 
 type Transaction = {
   id: string;
@@ -132,6 +134,35 @@ export default function DashboardPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Initialiser les notifications push
+  useEffect(() => {
+    if (!mounted || !token) return;
+
+    async function initNotifications() {
+      try {
+        // Demander la permission
+        const hasPermission = await requestNotificationPermission();
+        if (!hasPermission) {
+          console.log("Permission de notification refusée");
+          return;
+        }
+
+        // Enregistrer le Service Worker
+        const registration = await registerServiceWorker();
+        if (!registration) {
+          console.log("Service Worker non disponible");
+          return;
+        }
+
+        console.log("Notifications push activées");
+      } catch (error) {
+        console.error("Erreur lors de l'initialisation des notifications:", error);
+      }
+    }
+
+    initNotifications();
+  }, [mounted, token]);
 
   // Vérifier l'authentification (uniquement après le montage)
   useEffect(() => {

@@ -3,7 +3,17 @@
  * Utilise le cache natif de fetch() avec revalidate
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+// Pour Docker : côté serveur utilise le nom du service, côté client utilise localhost
+const getApiBaseUrl = () => {
+  // Si on est côté serveur (SSR) dans Docker, utiliser le nom du service
+  if (typeof window === 'undefined') {
+    return process.env.API_URL_INTERNAL || process.env.NEXT_PUBLIC_API_URL || "http://backend:4000";
+  }
+  // Sinon, côté client (navigateur), utiliser localhost
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Fetch avec cache configuré pour Next.js

@@ -14,12 +14,20 @@ async function request<T>(path: string, method: HttpMethod, body?: unknown, toke
   });
 
   if (!res.ok) {
-    let message = "Erreur réseau";
+    let message = `Erreur réseau (${res.status})`;
     try {
       const data = await res.json();
       message = data?.message || message;
-    } catch {}
-    throw new Error(message);
+    } catch (e) {
+      // Si la réponse n'est pas du JSON, essayer de lire le texte
+      try {
+        const text = await res.text();
+        if (text) message = text;
+      } catch {}
+    }
+    const error = new Error(message);
+    (error as any).status = res.status;
+    throw error;
   }
   const contentType = res.headers.get("content-type") || "";
   const hasBody = res.status !== 204 && contentType.includes("application/json");
@@ -69,6 +77,25 @@ export const api = {
 
   getSavingsRate: () =>
     request<{ rate: number }>("/savings-rate", "GET"),
+
+  // Private Messages APIs
+  getAvailableAdvisor: () =>
+    request<{ id: string; firstName: string; lastName: string; email: string }>("/private-messages/advisor", "GET"),
+  
+  listPrivateMessages: (advisorId: string, token: string) =>
+    request<{ messages: Array<{ id: string; senderId: string; receiverId: string; content: string; createdAt: string; isRead: boolean }> }>(`/private-messages/${advisorId}`, "GET", undefined, token),
+  
+  sendPrivateMessage: (receiverId: string, content: string, token: string) =>
+    request<{ message: { id: string; senderId: string; receiverId: string; content: string; createdAt: string; isRead: boolean } }>("/private-messages", "POST", { receiverId, content }, token),
+  
+  getUnreadCount: (token: string) =>
+    request<{ count: number }>("/private-messages/unread/count", "GET", undefined, token),
+
+  // Advisor APIs
+  advisor: {
+    listConversations: (token: string) =>
+      request<{ conversations: Array<{ clientId: string; clientName: string; clientEmail: string; lastMessage: string; lastMessageDate: string; unreadCount: number }> }>("/advisor/conversations", "GET", undefined, token),
+  },
 
   // Director APIs
   director: {

@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import express from "express";
+import { createServer, Server as HTTPServer } from "http";
 import bodyParser from "body-parser";
 import "dotenv/config";
 import cors from "cors";
@@ -52,6 +53,14 @@ import { requireDirector } from "../middlewares/requireDirector";
 import { requireAdvisor } from "../middlewares/requireAdvisor";
 import { seedDirector } from "../../infrastructure/seeds/createDirector";
 import { seedAdvisor } from "../../infrastructure/seeds/createAdvisor";
+import { MySQLPrivateMessageRepository } from "../../infrastructure/adapters/mysql/MySQLPrivateMessageRepository";
+import { SendPrivateMessage } from "../../application/use-cases/SendPrivateMessage";
+import { ListPrivateMessages } from "../../application/use-cases/ListPrivateMessages";
+import { GetAvailableAdvisor } from "../../application/use-cases/GetAvailableAdvisor";
+import { PrivateMessageController } from "../controllers/PrivateMessageController";
+import { PrivateMessageSocket } from "../../infrastructure/websocket/PrivateMessageSocket";
+import { SendNotification } from "../../application/use-cases/SendNotification";
+import jwt from "jsonwebtoken";
 
 // --- Initialiser la base de données ---
 async function initializeDatabase() {
@@ -80,6 +89,7 @@ async function startServer() {
   const bankSettingsRepository = new MySQLBankSettingsRepository(AppDataSource);
   const stockRepository = new MySQLStockRepository(AppDataSource);
   const creditRepository = new MySQLCreditRepository(AppDataSource);
+  const privateMessageRepository = new MySQLPrivateMessageRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -118,6 +128,13 @@ async function startServer() {
     bankSettingsRepository,
     transactionRepository
   );
+
+  // --- Use cases (Private Messages) ---
+  const sendPrivateMessage = new SendPrivateMessage(privateMessageRepository, clientRepository);
+  const listPrivateMessages = new ListPrivateMessages(privateMessageRepository, clientRepository);
+  const getAvailableAdvisor = new GetAvailableAdvisor(clientRepository);
+  const { ListAdvisorConversations } = await import("../../application/use-cases/ListAdvisorConversations");
+  const listAdvisorConversations = new ListAdvisorConversations(privateMessageRepository, clientRepository);
 
   // --- Use cases (Director) ---
   const listAllClients = new ListAllClients(clientRepository);
@@ -182,6 +199,13 @@ async function startServer() {
     clientRepository
   );
 
+  // --- Controller (Private Messages) ---
+  const privateMessageController = new PrivateMessageController(
+    listPrivateMessages,
+    sendPrivateMessage,
+    privateMessageRepository
+  );
+
   // --- Job d'intérêts quotidiens ---
   const dailyInterestJob = new DailyInterestJob(calculateDailyInterest);
   
@@ -204,8 +228,34 @@ async function startServer() {
   // Démarrer le job (exécute tous les jours à minuit)
   dailyInterestJob.start();
 
-  // --- App ---
+  // --- App & HTTP Server ---
   const app = express();
+  const httpServer = createServer(app);
+  
+  // --- WebSocket Server ---
+  const privateMessageSocket = new PrivateMessageSocket(
+    httpServer,
+    sendPrivateMessage,
+    listPrivateMessages,
+    clientRepository
+  );
+
+  // --- Use case SendNotification (doit être créé après le WebSocket) ---
+  const sendNotification = new SendNotification(
+    clientRepository,
+    (clientId: string, title: string, message: string) => {
+      // Envoyer via WebSocket
+      privateMessageSocket.sendMessageToUser(clientId, "notification", {
+        title,
+        message,
+      });
+    }
+  );
+
+  // --- Controller (Notifications) ---
+  const { NotificationController } = await import("../controllers/NotificationController");
+  const notificationController = new NotificationController(sendNotification);
+
   app.use(bodyParser.json());
 
   // Allow cross-origin requests from dev frontends (Next.js dev servers)
@@ -233,6 +283,12 @@ async function startServer() {
     next();
   });
 
+  // Middleware de logging pour debug
+  app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`);
+    next();
+  });
+
   // --- Routes Client ---
   app.post("/clients/register", clientController.register);
   app.get("/clients/confirm/:token", clientController.confirm);
@@ -256,6 +312,44 @@ async function startServer() {
 
   // --- Routes Savings (public) ---
   app.get("/savings-rate", savingsController.getSavingsRate);
+
+  // --- Routes Private Messages ---
+  app.get("/private-messages/advisor", async (_req, res) => {
+    try {
+      const advisor = await getAvailableAdvisor.execute();
+      res.status(200).json({
+        id: advisor.getId(),
+        firstName: advisor.getFirstName(),
+        lastName: advisor.getLastName(),
+        email: advisor.getEmail()
+      });
+    } catch (err: any) {
+      res.status(404).json({ message: err.message });
+    }
+  });
+  app.get("/private-messages/:advisorId", privateMessageController.list);
+  app.post("/private-messages", privateMessageController.send);
+  app.get("/private-messages/unread/count", privateMessageController.getUnreadCount);
+
+  // --- Routes Advisor ---
+  app.get("/advisor/conversations", requireAdvisor, async (req, res) => {
+    try {
+      // Le middleware requireAdvisor met déjà le user dans req.user
+      const userId = (req as any).user?.clientId;
+      console.log("📨 Requête /advisor/conversations pour userId:", userId);
+      if (!userId) {
+        console.error("❌ Utilisateur non authentifié");
+        return res.status(401).json({ message: "Utilisateur non authentifié" });
+      }
+      const conversations = await listAdvisorConversations.execute(userId);
+      console.log("✅ Conversations récupérées:", conversations.length);
+      res.status(200).json({ conversations });
+    } catch (err: any) {
+      console.error("❌ Erreur dans /advisor/conversations:", err);
+      res.status(400).json({ message: err.message || "Erreur lors de la récupération des conversations" });
+    }
+  });
+  app.post("/advisor/notifications", requireAdvisor, notificationController.send);
 
   // --- Routes Director ---
   app.post("/director/clients", requireDirector, directorController.createClient);
@@ -311,8 +405,9 @@ async function startServer() {
 
   // --- Port configurable (évite conflit avec Next.js) ---
   const PORT = Number(process.env.PORT ?? 4000);
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
+    console.log(`🔌 WebSocket disponible sur ws://localhost:${PORT}`);
   });
 }
 

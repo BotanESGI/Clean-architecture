@@ -372,9 +372,9 @@ La banque AVENIR (Alliance de Valeurs Économiques et Nationales Investies Respo
 
 ### Client
 
-- **Authentification** : En tant que client, je dois pouvoir m'inscrire sur cette nouvelle plateforme. Je dois pouvoir renseigner mes informations afin de recevoir un lien me permettant de confirmer mon inscription et d'accéder à mon compte (qui sera automatiquement créé à l'inscription).
+- **Authentification** : En tant que client, je dois pouvoir m'inscrire sur cette nouvelle plateforme. Je dois pouvoir renseigner mes informations afin de recevoir un lien me permettant de confirmer mon inscription et d'accéder à mon compte (qui sera automatiquement créé à l'inscription). ✅
 
-- **Discussion privée** : En tant que client, je dois pouvoir contacter mon conseiller via message privés en temps réel.
+- **Discussion privée** : En tant que client, je dois pouvoir contacter mon conseiller via message privés en temps réel. ✅
 
 - **Activités et feed** : En tant que client je dois pouvoir, sur mon espace, consulter en temps réel les actualités de ma banque.
 
@@ -384,7 +384,7 @@ La banque AVENIR (Alliance de Valeurs Économiques et Nationales Investies Respo
 
 - **Notification** : En tant que conseiller, je peux envoyer une notification en temps réel à l'un de mes clients. La notification doit être personnalisée en fonction du besoin.
 
-- **Discussion privée** : En tant que conseiller, je peux répondre aux clients qui m'ont contacter via message privé en temps réel.
+- **Discussion privée** : En tant que conseiller, je peux répondre aux clients qui m'ont contacter via message privé en temps réel. ✅
 
 ### Conseiller de banque et directeur de banque
 

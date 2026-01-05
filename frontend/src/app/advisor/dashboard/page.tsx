@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
@@ -49,6 +49,7 @@ export default function AdvisorDashboard() {
   const router = useRouter();
   const { t } = useTranslation();
   const { show } = useToast();
+  const [mounted, setMounted] = useState(false);
   
   const [credits, setCredits] = useState<Credit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -75,14 +76,18 @@ export default function AdvisorDashboard() {
   });
 
   useEffect(() => {
-    const role = localStorage.getItem("role");
-    if (!token || role !== "ADVISOR") {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (!token) {
       router.push("/login");
       return;
     }
     loadCredits();
     loadClients();
-  }, [token, router]);
+  }, [mounted, token, router]);
 
   const loadCredits = async () => {
     if (!token) return;
@@ -221,7 +226,7 @@ export default function AdvisorDashboard() {
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return <div className="text-center py-20">{t("common.loading")}</div>;
   }
 
@@ -241,6 +246,15 @@ export default function AdvisorDashboard() {
         >
           + {t("credit.createCredit")}
         </button>
+      </div>
+
+      {/* Section rapide d'accès */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <a href="/advisor/messages" className="card p-6 hover:bg-white/10 transition cursor-pointer">
+          <h3 className="font-semibold mb-2">{t("advisor.messages") || "Messagerie"}</h3>
+          <p className="text-muted text-sm">{t("advisor.messagesDescription") || "Gérer les messages des clients"}</p>
+          <p className="text-primary text-sm mt-4 font-medium">→ {t("advisor.accessMessages") || "Accéder aux messages"}</p>
+        </a>
       </div>
 
       {/* Stats */}
