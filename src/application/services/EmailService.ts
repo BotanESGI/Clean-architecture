@@ -5,5 +5,12 @@ export interface EmailService {
      * @param clientId Identifiant du client, utilisé pour le lien de confirmation
      */
     sendConfirmationEmail(to: string, clientId: string): Promise<void>;
+    
+    /**
+     * Envoie une notification aux clients concernant le changement du taux d'épargne.
+     * @param to Adresse email du destinataire
+     * @param rate Nouveau taux d'épargne en pourcentage
+     */
+    sendSavingsRateChangeNotification(to: string, rate: number): Promise<void>;
   }
   

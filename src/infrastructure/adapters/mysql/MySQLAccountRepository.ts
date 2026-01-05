@@ -52,6 +52,7 @@ export class MySQLAccountRepository implements AccountRepository {
     entity.name = account.name;
     entity.balance = account.balance;
     entity.isClosed = account.isClosed;
+    entity.accountType = account.accountType;
     entity.createdAt = account.createdAt;
     return entity;
   }
@@ -64,6 +65,7 @@ export class MySQLAccountRepository implements AccountRepository {
       entity.name,
       Number(entity.balance),
       entity.isClosed,
+      (entity.accountType as "checking" | "savings") || "checking",
       entity.createdAt
     );
     return account;

@@ -193,19 +193,19 @@ docker-compose up --build
 - Authentification : en tant que client, je dois pouvoir m’inscrire sur cette nouvelle plateforme. Je dois pouvoir renseigner mes informations afin de recevoir un lien me permettant de confirmer mon inscription et accéder à mon compte (qui sera automatiquement créé à l’inscription). ✅
 - Comptes : en tant que client, je dois pouvoir disposer d’autant de compte que je le souhaite. Ainsi, un nouvel IBAN unique et valide mathématiquement doit être généré chaque fois que je créé un compte. Je dois pouvoir supprimer le compte, et modifier son nom personnalisé si je le souhaite. ✅
 - Opérations : en tant que client, je dois pouvoir effectuer des opérations courantes, tel qu’un transfert d’un compte à un autre (uniquement au sein de notre banque). Le solde d’un compte doit refléter la somme des opérations de débit (sortant du compte, entrant dans un autre) et de crédit (entrant vers le compte, en provenance d’un autre compte). ✅
-- Épargne: en tant que client, je dois pouvoir ouvrir un compte d’épargne. Celui-ci doit pouvoir me permettre, comme pour un compte, d’effectuer des opérations entrantes et sortantes. Néanmoins, ce dernier sera rémunéré tous les jours, au taux en vigueur (fixé par les administrateurs de la banque).
+- Épargne: en tant que client, je dois pouvoir ouvrir un compte d’épargne. Celui-ci doit pouvoir me permettre, comme pour un compte, d’effectuer des opérations entrantes et sortantes. Néanmoins, ce dernier sera rémunéré tous les jours, au taux en vigueur (fixé par les administrateurs de la banque).✅
 - Investissement : en tant que client, je dois pouvoir enregistrer des ordres d’achat ou de vente d’une action. Une action est un titre financier d’appartenance à une entreprise côté sur un marché financier. La liste des actions disponibles est définie par le directeur de la banque. Le cours est calculé en fonction du prix d’équilibre entre un prix de vente et un prix d’achat, selon le carnet d’ordre global pour une action. Étant donné que nous sommes une banque moderne, nous n’avons pas de frais d’arbitrage. Les seuls frais sont de 1€ à l’achat, comme à la vente.
   
 ### Directeur de banque :
 - Authentification : en tant que directeur de banque, je dois pouvoir m’authentifier.✅
 - Gestion des comptes : en tant que directeur de banque, je dois pouvoir créer, modifier ou supprimer un compte client ou le bannir.✅
-- Fixation du taux d’épargne : en tant que directeur de la banque, je dois pouvoir effectuer une modification du taux d’épargne disponible pour les comptes d’épargne. Ce faisant, tous les clients ayant actuellement un compte d’épargne doivent avoir une notification en ce qui concerne le changement du taux qui a été fixé lors de la modification.
-- Actions : en tant que directeur de banque, je suis celui qui créé, modifie et supprime les actions. Je n’ai pas la possibilité de modifier le cours d’une action, mais c’est moi qui décide quelles sont les actions disponibles de celles qui ne le sont pas. Les clients sont propriétaires de leur actions, contrairement à certains de nos concurrents qui ne le disent pas, nous l’affichons fièrement.
+- Fixation du taux d’épargne : en tant que directeur de la banque, je dois pouvoir effectuer une modification du taux d’épargne disponible pour les comptes d’épargne. Ce faisant, tous les clients ayant actuellement un compte d’épargne doivent avoir une notification en ce qui concerne le changement du taux qui a été fixé lors de la modification.✅
+- Actions : en tant que directeur de banque, je suis celui qui créé, modifie et supprime les actions. Je n’ai pas la possibilité de modifier le cours d’une action, mais c’est moi qui décide quelles sont les actions disponibles de celles qui ne le sont pas. Les clients sont propriétaires de leur actions, contrairement à certains de nos concurrents qui ne le disent pas, nous l’affichons fièrement.✅
   
 ### Conseiller de banque :
-- Authentification : en tant que conseiller bancaire, je peux m’authentifier
+- Authentification : en tant que conseiller bancaire, je peux m’authentifier. ✅
 - Crédit : en tant que conseiller bancaire, je peux être amené à octroyer des crédit. Un crédit a un taux annuel d’intérêts à rembourser sur le capital
-restant chaque mois, une assurance (obligatoire) à un taux dont le montant est calculé sur le total du crédit accordé et prélevé sur les mensualités, et des mensualités qui correspondent au montant du crédit remboursé chaque mois. Nous utilisons la méthode de calcul du crédit à mensualité constante.
+restant chaque mois, une assurance (obligatoire) à un taux dont le montant est calculé sur le total du crédit accordé et prélevé sur les mensualités, et des mensualités qui correspondent au montant du crédit remboursé chaque mois. Nous utilisons la méthode de calcul du crédit à mensualité constante.✅
 - Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu’un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d’un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers. (frontend  ✅, backend ❌ )
 
 ## 📚 Structure du projet
@@ -330,3 +330,82 @@ Ce projet est un projet éducatif développé dans le cadre d'un cours sur l'arc
 ---
 
 **Développé avec ❤️ en suivant les principes de Clean Architecture**
+
+# Sujet NextJS 5IW
+
+## Contexte
+
+Ce sujet permet de rajouter des instructions pour la réalisation du front du projet **Clean Architecture**.  
+Ce front sera évalué et servira de note de partiel pour la matière **NextJS**.
+
+---
+
+## Instructions
+
+- Votre application doit respecter une **approche Atomic Design** pour la structure de ses composants.
+- Utilisation de **contexte(s)** pour partager des states entre composants. ✅ (AuthContext, ToastContext)
+- Gestion des **formulaires avec React Hook Form** et validation avec des **schémas** (ex : *zod*). ✅
+- Les pages **404** et **500** doivent être correctement intégrées et respecter la charte graphique de votre application.✅
+- Votre application doit être **traduite en français et en anglais**. ✅
+- Un fichier **sitemap.xml** doit être accessible pour lister les pages de votre application.
+- Au moins une **page d'accueil** avec les **metadata correctement intégrées pour le SEO**. ✅
+- Votre application doit avoir un **maximum de rendu côté serveur (SSR)**. ✅ (page d'accueil en Server Component)
+- Votre application doit être conçue pour utiliser un **maximum de cache**, qu'il soit applicatif ou API. ✅ (`lib/api-cache.ts`, `cachedFetch`)
+
+---
+
+## Bonus
+
+- Cache géré par un **Redis**.  
+- **Animations** sur tableaux, cards, listes, etc.
+- **Drag'n'Drop** (ex : déplacer de l'argent d'un compte à un autre).
+
+---
+
+# # Sujet Web Temps réel 5IW :
+
+## Introduction
+
+La banque AVENIR (Alliance de Valeurs Économiques et Nationales Investies Responsablement) vous a recruté comme développeur Web afin de pouvoir l'aider à développer son métier et concurrencer les banques traditionnelles afin de pouvoir créer une application Web permettant à ses clients de gérer efficacement leur liquidités, épargne et investissement.
+
+## Fonctionnalités (18 points)
+
+### Client
+
+- **Authentification** : En tant que client, je dois pouvoir m'inscrire sur cette nouvelle plateforme. Je dois pouvoir renseigner mes informations afin de recevoir un lien me permettant de confirmer mon inscription et d'accéder à mon compte (qui sera automatiquement créé à l'inscription). ✅
+
+- **Discussion privée** : En tant que client, je dois pouvoir contacter mon conseiller via message privés en temps réel. ✅
+
+- **Activités et feed** : En tant que client je dois pouvoir, sur mon espace, consulter en temps réel les actualités de ma banque.
+
+### Conseiller de banque
+
+- **Activités** : En tant que conseiller, je dois pouvoir créer une nouvelle actualités consultable par les clients.
+
+- **Notification** : En tant que conseiller, je peux envoyer une notification en temps réel à l'un de mes clients. La notification doit être personnalisée en fonction du besoin.
+
+- **Discussion privée** : En tant que conseiller, je peux répondre aux clients qui m'ont contacter via message privé en temps réel. ✅
+
+### Conseiller de banque et directeur de banque
+
+- **Discussion de groupe** : En tant que conseiller ou directeur, je dois pouvoir communiquer via une discussion de groupe avec tout le monde en temps réel. Le directeur de banque doit se démarquer visuellement dans la conversation.
+
+## Contraintes techniques
+
+1. **Langage** : Développement en TypeScript (backend et frontend).
+
+2. **Web Temps Réel** :
+   - Le système de chat doit être réalisé via web socket.
+   - Le système de Feed et de notification doit être réalisé via SSE (Server-Sent Events).
+
+3. **Fixtures** : Le projet devra avoir des fixtures et/ou des jeux de données afin de tester rapidement toutes les fonctionnalités.
+
+4. **README** : Le README de votre projet devra contenir les informations suivantes :
+   - Le Prénom, NOM et classe de toutes les personnes
+   - Toutes les étapes sur comment installer / lancer le projet
+   - Toutes les étapes pour avoir des jeux de données et les identifiants d'un compte de test (un compte utilisateur et un compte admin)
+
+## BONUS
+
+- Afficher le statut « En train d'écrire » si un client ou un conseiller est en train d'envoyer un message dans la partie « contacter un conseiller ». ✅
+- Faire le lien entre les notifications administrateur et l'API web « notification push ». ✅

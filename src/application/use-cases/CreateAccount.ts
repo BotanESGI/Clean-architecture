@@ -8,12 +8,16 @@ export class CreateAccount {
 
   async execute(params: { ownerId: string; name?: string; type?: "checking" | "savings" }) {
     const iban = IBAN.generateFR();
+    const accountType = params.type || "checking";
+    const defaultName = accountType === "savings" ? "Compte d'épargne" : "Compte courant";
     const account = new Account(
       crypto.randomUUID(),
       params.ownerId,
       iban,
-      params.name ?? "Compte courant",
-      0
+      params.name ?? defaultName,
+      0,
+      false,
+      accountType
     );
     await this.repo.create(account);
     return account;

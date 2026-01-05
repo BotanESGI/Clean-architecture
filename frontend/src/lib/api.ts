@@ -14,12 +14,20 @@ async function request<T>(path: string, method: HttpMethod, body?: unknown, toke
   });
 
   if (!res.ok) {
-    let message = "Erreur réseau";
+    let message = `Erreur réseau (${res.status})`;
     try {
       const data = await res.json();
       message = data?.message || message;
-    } catch {}
-    throw new Error(message);
+    } catch (e) {
+      // Si la réponse n'est pas du JSON, essayer de lire le texte
+      try {
+        const text = await res.text();
+        if (text) message = text;
+      } catch {}
+    }
+    const error = new Error(message);
+    (error as any).status = res.status;
+    throw error;
   }
   const contentType = res.headers.get("content-type") || "";
   const hasBody = res.status !== 204 && contentType.includes("application/json");
@@ -50,10 +58,10 @@ export const api = {
     request<{ id: string; firstname: string; lastname: string; email: string; verified: boolean }>(`/clients/${id}`, "GET"),
 
   listAccounts: (clientId: string) =>
-    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>>(`/accounts?clientId=${clientId}`, "GET"),
+    request<Array<{ id: string; clientId: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>>(`/accounts?clientId=${clientId}`, "GET"),
 
   createAccount: (clientId: string, name?: string, type?: "checking" | "savings") =>
-    request<{ id: string; clientId: string; iban: string; name: string; balance: number; createdAt?: string }>(`/accounts`, "POST", { clientId, name, type }),
+    request<{ id: string; clientId: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>(`/accounts`, "POST", { clientId, name, type }),
 
   deleteAccount: (accountId: string) =>
     request<{ success: boolean }>(`/accounts/${accountId}`, "DELETE"),
@@ -66,6 +74,22 @@ export const api = {
 
   verifyBeneficiary: (iban: string, firstName?: string, lastName?: string) =>
     request<{ exists: boolean; verified?: boolean; firstName?: string; lastName?: string; accountName?: string; message?: string }>("/beneficiaries/verify", "POST", { iban, firstName, lastName }),
+
+  getSavingsRate: () =>
+    request<{ rate: number }>("/savings-rate", "GET"),
+
+  // Private Messages APIs
+  getAvailableAdvisor: () =>
+    request<{ id: string; firstName: string; lastName: string; email: string }>("/private-messages/advisor", "GET"),
+  
+  listPrivateMessages: (advisorId: string, token: string) =>
+    request<{ messages: Array<{ id: string; senderId: string; receiverId: string; content: string; createdAt: string; isRead: boolean }> }>(`/private-messages/${advisorId}`, "GET", undefined, token),
+  
+  sendPrivateMessage: (receiverId: string, content: string, token: string) =>
+    request<{ message: { id: string; senderId: string; receiverId: string; content: string; createdAt: string; isRead: boolean } }>("/private-messages", "POST", { receiverId, content }, token),
+  
+  getUnreadCount: (token: string) =>
+    request<{ count: number }>("/private-messages/unread/count", "GET", undefined, token),
 
   // Director APIs
   director: {
@@ -86,6 +110,55 @@ export const api = {
     
     deleteClient: (clientId: string, token: string) =>
       request<{ message: string }>(`/director/clients/${clientId}`, "DELETE", undefined, token),
+    
+    getSavingsRate: (token: string) =>
+      request<{ rate: number }>("/director/savings-rate", "GET", undefined, token),
+    
+    setSavingsRate: (rate: number, token: string) =>
+      request<{ message: string; rate: number }>("/director/savings-rate", "POST", { rate }, token),
+    
+    listStocks: (token: string) =>
+      request<{ stocks: Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean; createdAt: string }> }>("/director/stocks", "GET", undefined, token),
+    
+    createStock: (payload: { symbol: string; name: string; initialPrice?: number }, token: string) =>
+      request<{ message: string; stock: unknown }>("/director/stocks", "POST", payload, token),
+    
+    updateStock: (stockId: string, payload: { symbol?: string; name?: string; isAvailable?: boolean }, token: string) =>
+      request<{ message: string }>(`/director/stocks/${stockId}`, "PUT", payload, token),
+    
+    deleteStock: (stockId: string, token: string) =>
+      request<{ message: string }>(`/director/stocks/${stockId}`, "DELETE", undefined, token),
+  },
+
+  // Advisor APIs (Messagerie + Credits)
+  advisor: {
+    // Messagerie
+    listConversations: (token: string) =>
+      request<{ conversations: Array<{ clientId: string; clientName: string; clientEmail: string; lastMessage: string; lastMessageDate: string; unreadCount: number }> }>("/advisor/conversations", "GET", undefined, token),
+    
+    // Credits
+    listClients: (token: string) =>
+      request<{ clients: Array<{ id: string; firstName: string; lastName: string; email: string; isVerified: boolean; isBanned: boolean; role: string }> }>("/advisor/clients", "GET", undefined, token),
+    
+    calculateCreditPreview: (payload: { amount: number; annualInterestRate: number; durationMonths: number; insuranceRate: number }, token: string) =>
+      request<{ monthlyPayment: number; insuranceMonthlyAmount: number; totalMonthlyPayment: number; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number }>("/advisor/credits/preview", "POST", payload, token),
+    
+    createCredit: (payload: { clientId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number }, token: string) =>
+      request<{ id: string; clientId: string; advisorId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number; monthlyPayment: number; remainingCapital: number; status: string; insuranceMonthlyAmount: number; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number; createdAt: string }>("/advisor/credits", "POST", payload, token),
+    
+    listCredits: (token: string, filters?: { clientId?: string; status?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.clientId) params.append("clientId", filters.clientId);
+      if (filters?.status) params.append("status", filters.status);
+      const query = params.toString();
+      return request<{ credits: Array<{ id: string; clientId: string; advisorId: string; accountId: string; amount: number; annualInterestRate: number; insuranceRate: number; durationMonths: number; monthlyPayment: number; remainingCapital: number; status: string; insuranceMonthlyAmount: number; paidMonths: number; startDate?: string; nextPaymentDate?: string; totalInterestAmount: number; totalInsuranceAmount: number; totalCost: number; createdAt: string }> }>(`/advisor/credits${query ? `?${query}` : ""}`, "GET", undefined, token);
+    },
+    
+    activateCredit: (creditId: string, token: string) =>
+      request<{ message: string }>(`/advisor/credits/${creditId}/activate`, "POST", undefined, token),
+    
+    recordCreditPayment: (creditId: string, token: string) =>
+      request<{ message: string; paymentDetails: { interestAmount: number; capitalAmount: number; insuranceAmount: number; newRemainingCapital: number } }>(`/advisor/credits/${creditId}/payment`, "POST", undefined, token),
   },
 };
 

@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useRouter } from "next/navigation";
+import { useTranslation } from "../../hooks/useTranslation";
 import api from "../../lib/api";
+import { registerServiceWorker, requestNotificationPermission } from "../../lib/notifications";
+import { decodeClientId } from "../../lib/utils";
 
 type Transaction = {
   id: string;
@@ -29,24 +33,29 @@ type Beneficiary = {
 
 export default function DashboardPage() {
   const { token } = useAuth();
+  const router = useRouter();
+  const { t } = useTranslation();
+  const [mounted, setMounted] = useState(false);
 
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientName, setClientName] = useState<string>("Client");
-  const [ibanInfo, setIbanInfo] = useState<{ iban: string; name: string; createdAt?: string } | null>(null);
+  const [ibanInfo, setIbanInfo] = useState<{ iban: string; name: string; accountType?: string; createdAt?: string } | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const { show } = useToast();
   const [modalBanner, setModalBanner] = useState("");
-  const [accounts, setAccounts] = useState<Array<{ id: string; iban: string; name: string; balance: number; createdAt?: string }>>([]);
+  const [accounts, setAccounts] = useState<Array<{ id: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [displayedCardIndex, setDisplayedCardIndex] = useState<number>(0);
   const [activityHistory, setActivityHistory] = useState<ActivityHistoryItem[]>([]);
   const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountType, setNewAccountType] = useState<"checking" | "savings">("checking");
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
+  const [savingsRate, setSavingsRate] = useState<number | null>(null);
 
   // Load account data (transactions and activity history) for a specific account
   const loadAccountData = useCallback(async (accountId: string) => {
@@ -99,41 +108,127 @@ export default function DashboardPage() {
     
     setActiveAccountId(accountId);
     setBalance(account.balance);
-    setIbanInfo({ iban: account.iban, name: account.name, createdAt: account.createdAt });
+    setIbanInfo({ 
+      iban: account.iban, 
+      name: account.name, 
+      accountType: account.accountType,
+      createdAt: account.createdAt 
+    });
     setDisplayedCardIndex(accounts.findIndex(a => a.id === accountId));
+    
+    // Reload savings rate when switching accounts
+    try {
+      const rateData = await api.getSavingsRate();
+      setSavingsRate(rateData.rate);
+    } catch (err) {
+      console.error("Error loading savings rate:", err);
+    }
     
     await loadAccountData(accountId);
     
-    const accountName = account.name || "Compte";
-    show(`Compte sélectionné: ${accountName}`, "success");
+    const accountName = account.name || t("dashboard.accountName");
+    show(`${t("dashboard.accountSelected")}: ${accountName}`, "success");
   }, [accounts, loadAccountData, show]);
+
+  // Marquer le composant comme monté côté client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Initialiser les notifications push
+  useEffect(() => {
+    if (!mounted || !token) return;
+
+    async function initNotifications() {
+      try {
+        // Demander la permission
+        const hasPermission = await requestNotificationPermission();
+        if (!hasPermission) {
+          console.log("Permission de notification refusée");
+          return;
+        }
+
+        // Enregistrer le Service Worker
+        const registration = await registerServiceWorker();
+        if (!registration) {
+          console.log("Service Worker non disponible");
+          return;
+        }
+
+        console.log("Notifications push activées");
+      } catch (error) {
+        console.error("Erreur lors de l'initialisation des notifications:", error);
+      }
+    }
+
+    initNotifications();
+  }, [mounted, token]);
+
+  // Vérifier l'authentification (uniquement après le montage)
+  useEffect(() => {
+    if (!mounted) return; // Attendre que le composant soit monté
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+  }, [mounted, token, router]);
 
   // Initial load
   useEffect(() => {
+    if (!token) return; // Ne pas charger si pas de token
+    
     async function load() {
       try {
         const clientId = decodeClientId(token);
-        if (!clientId) return;
+        if (!clientId) {
+          router.push("/login");
+          return;
+        }
         
-        const [profile, list] = await Promise.all([
+        const [profile, list, rateData] = await Promise.all([
           api.getClient(clientId),
           api.listAccounts(clientId),
+          api.getSavingsRate().catch(() => ({ rate: null })),
         ]);
         
         setClientName(`${profile.firstname} ${profile.lastname}`);
         setAccounts(list);
         
+        // Initialiser le dernier taux connu et vérifier les changements
+        if (rateData.rate !== null) {
+          const lastRateKey = `lastSavingsRate_${clientId}`;
+          const lastRate = localStorage.getItem(lastRateKey);
+          const hasSavingsAccount = list.some(acc => acc.accountType === "savings" && !acc.isClosed);
+          
+          // Si le taux a changé depuis la dernière visite et que l'utilisateur a un compte d'épargne
+          if (lastRate !== null && parseFloat(lastRate) !== rateData.rate && hasSavingsAccount) {
+            show(
+              `📢 ${t("dashboard.savingsRateChanged")}: ${parseFloat(lastRate).toFixed(2)}% → ${rateData.rate.toFixed(2)}%`,
+              "info"
+            );
+          }
+          
+          // Sauvegarder le taux actuel
+          localStorage.setItem(lastRateKey, rateData.rate.toString());
+          setSavingsRate(rateData.rate);
+        }
+        
         const primary = list[0];
         if (primary) {
           setActiveAccountId(primary.id);
           setBalance(primary.balance);
-          setIbanInfo({ iban: primary.iban, name: primary.name, createdAt: primary.createdAt || undefined });
+          setIbanInfo({ 
+            iban: primary.iban, 
+            name: primary.name, 
+            accountType: primary.accountType,
+            createdAt: primary.createdAt || undefined 
+          });
           setDisplayedCardIndex(0);
           await loadAccountData(primary.id);
         }
       } catch (err: unknown) {
         console.error("Error loading dashboard:", err);
-        show("Erreur lors du chargement", "error");
+        show(t("dashboard.loadingError"), "error");
       } finally {
         setLoading(false);
       }
@@ -142,6 +237,15 @@ export default function DashboardPage() {
       load();
     }
   }, [token, loadAccountData, show]);
+
+  // Reload savings rate when account modal opens
+  useEffect(() => {
+    if (showAccountModal) {
+      api.getSavingsRate()
+        .then(rateData => setSavingsRate(rateData.rate))
+        .catch(err => console.error("Error loading savings rate:", err));
+    }
+  }, [showAccountModal]);
 
   // Polling for real-time updates
   useEffect(() => {
@@ -155,6 +259,49 @@ export default function DashboardPage() {
         // Refresh accounts list to get updated balances
         const list = await api.listAccounts(clientId);
         setAccounts(list);
+        
+        // Refresh savings rate and check for changes
+        try {
+          const rateData = await api.getSavingsRate();
+          const newRate = rateData.rate;
+          
+          // Vérifier si le taux a changé
+          const lastRateKey = `lastSavingsRate_${clientId}`;
+          const lastRate = localStorage.getItem(lastRateKey);
+          
+          // Vérifier si l'utilisateur a un compte d'épargne
+          const hasSavingsAccount = list.some(acc => acc.accountType === "savings" && !acc.isClosed);
+          
+          if (lastRate !== null && parseFloat(lastRate) !== newRate && hasSavingsAccount) {
+            // Le taux a changé et l'utilisateur a un compte d'épargne
+            show(
+              `📢 Le taux d'épargne a été modifié : ${parseFloat(lastRate).toFixed(2)}% → ${newRate.toFixed(2)}%`,
+              "info"
+            );
+            
+            // Ajouter à l'historique d'activité
+            if (activeAccountId) {
+              try {
+                const stored = localStorage.getItem(`activityHistory_${activeAccountId}`);
+                const existingHistory: ActivityHistoryItem[] = stored ? JSON.parse(stored) : [];
+                const newHistory: ActivityHistoryItem[] = [{
+                  id: `rate_change_${Date.now()}`,
+                  date: new Date().toISOString(),
+                  label: `Taux d'épargne modifié : ${newRate.toFixed(2)}%`,
+                  type: "transfer_in",
+                }, ...existingHistory];
+                setActivityHistory(newHistory);
+                localStorage.setItem(`activityHistory_${activeAccountId}`, JSON.stringify(newHistory));
+              } catch {}
+            }
+          }
+          
+          // Sauvegarder le nouveau taux
+          localStorage.setItem(lastRateKey, newRate.toString());
+          setSavingsRate(newRate);
+        } catch (err) {
+          console.error("Error loading savings rate:", err);
+        }
         
         const currentAccount = list.find(a => a.id === activeAccountId);
         if (currentAccount) {
@@ -177,11 +324,11 @@ export default function DashboardPage() {
             const existingIds = new Set(existingHistory.map(h => h.id));
             
             const newTransfers = txns
-              .filter(t => t.type === "transfer_in" && !existingIds.has(t.id))
-              .map(t => ({
-                id: t.id,
-                date: t.createdAt,
-                label: `Virement reçu de ${t.relatedClientName || "Inconnu"} - ${formatCurrency(t.amount)}`,
+              .filter(transaction => transaction.type === "transfer_in" && !existingIds.has(transaction.id))
+              .map(transaction => ({
+                id: transaction.id,
+                date: transaction.createdAt,
+                label: `${t("dashboard.transferReceived")} ${transaction.relatedClientName || t("dashboard.unknown")} - ${formatCurrency(transaction.amount)}`,
                 type: "transfer_in" as const,
               }));
             
@@ -205,40 +352,50 @@ export default function DashboardPage() {
 
   const displayedAccount = accounts[displayedCardIndex] || accounts.find(a => a.id === activeAccountId) || accounts[0];
 
+  // Ne pas afficher le contenu si le composant n'est pas monté ou si l'utilisateur n'est pas authentifié
+  if (!mounted || !token) {
+    return null;
+  }
+
   return (
     <>
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold">Bonjour, <span className="text-primary">{clientName}</span></h1>
-          <p className="text-muted text-sm mt-1">Vue d&apos;ensemble de vos comptes</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold">{t("dashboard.hello")}, <span className="text-primary">{clientName}</span></h1>
+          <p className="text-muted text-sm mt-1">{t("dashboard.overview")}</p>
         </div>
-        <div className="chip">Solde mis à jour en temps réel</div>
+        <div className="chip">{t("dashboard.realTimeBalance")}</div>
       </div>
 
       {/* Top cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Solde principal</p>
+            <p className="text-muted text-sm">{t("dashboard.mainBalance")}</p>
             <p className="text-3xl font-extrabold mt-1">{formatCurrency(balance)}</p>
           </div>
-          <span className="pill">Compte courant</span>
+          <span className="pill">
+            {(() => {
+              const currentAccount = accounts.find(a => a.id === activeAccountId);
+              return currentAccount?.accountType === "savings" ? t("dashboard.savings") : t("dashboard.checking");
+            })()}
+          </span>
         </div>
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Dépenses (30j)</p>
+            <p className="text-muted text-sm">{t("dashboard.expenses")} (30j)</p>
             <p className="text-2xl font-semibold mt-1">{formatCurrency(expense)}</p>
           </div>
-          <span className="pill">Sortants</span>
+          <span className="pill">{t("dashboard.outgoing")}</span>
         </div>
         <div className="stat">
           <div>
-            <p className="text-muted text-sm">Revenus (30j)</p>
+            <p className="text-muted text-sm">{t("dashboard.income")} (30j)</p>
             <p className="text-2xl font-semibold mt-1">{formatCurrency(income)}</p>
           </div>
-          <span className="pill">Entrants</span>
+          <span className="pill">{t("dashboard.incoming")}</span>
         </div>
       </div>
 
@@ -246,12 +403,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Activité récente</h3>
-            <span className="text-xs text-muted">Historique</span>
+            <h3 className="font-semibold">{t("dashboard.recentActivity")}</h3>
+            <span className="text-xs text-muted">{t("dashboard.history")}</span>
           </div>
           <div className="divide-y divide-white/10 max-h-64 overflow-y-auto">
             {activityHistory.length === 0 ? (
-              <p className="text-muted text-sm py-4">Pas encore d&apos;historique d&apos;activités</p>
+              <p className="text-muted text-sm py-4">{t("dashboard.noActivityHistory")}</p>
             ) : (
               activityHistory.map((activity) => (
                 <div key={activity.id} className="py-3 flex items-center justify-between">
@@ -283,28 +440,32 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex <= 0 ? "opacity-40 pointer-events-none" : "")}
-              aria-label="Précédent"
-              onClick={() => {
+              aria-label={t("common.previous")}
+              onClick={async () => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.max(0, displayedCardIndex - 1);
-                setDisplayedCardIndex(newIdx);
+                const account = accounts[newIdx];
+                if (account) {
+                  setDisplayedCardIndex(newIdx);
+                  await switchAccount(account.id);
+                }
               }}
             >
               ◀
             </button>
             <div className="relative flex-1">
               {(() => {
-                if (!displayedAccount) return <div className="text-sm text-muted">Aucun compte</div>;
+                if (!displayedAccount) return <div className="text-sm text-muted">{t("dashboard.noAccounts")}</div>;
                 const isActive = displayedAccount.id === activeAccountId;
                 return (
                   <div className={"p-1 rounded-2xl " + cardBgByIndex(displayedCardIndex)}>
                     <div className="relative">
                       <button
                         className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 z-10 flex items-center justify-center"
-                        aria-label="Supprimer le compte"
+                        aria-label={t("dashboard.deleteAccountConfirm")}
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (!confirm("Supprimer ce compte ?")) return;
+                          if (!confirm(t("dashboard.deleteAccountConfirm"))) return;
                           await api.deleteAccount(displayedAccount.id);
                           const updated = accounts.filter(a => a.id !== displayedAccount.id);
                           setAccounts(updated);
@@ -323,7 +484,7 @@ export default function DashboardPage() {
                             setActivityHistory([]);
                             setDisplayedCardIndex(0);
                           }
-                          show("Compte supprimé", "success");
+                          show(t("dashboard.accountDeleted"), "success");
                         }}
                       >
                         ✕
@@ -332,7 +493,8 @@ export default function DashboardPage() {
                         <BankCard 
                           balance={displayedAccount.balance} 
                           holder={clientName} 
-                          last4={isActive ? displayedAccount.iban.slice(-4) : "****"} 
+                          last4={isActive ? displayedAccount.iban.slice(-4) : "****"}
+                          accountType={displayedAccount.accountType || "checking"}
                         />
                       </button>
                     </div>
@@ -342,11 +504,15 @@ export default function DashboardPage() {
             </div>
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex >= accounts.length - 1 ? "opacity-40 pointer-events-none" : "")}
-              aria-label="Suivant"
-              onClick={() => {
+              aria-label={t("common.next")}
+              onClick={async () => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.min(accounts.length - 1, displayedCardIndex + 1);
-                setDisplayedCardIndex(newIdx);
+                const account = accounts[newIdx];
+                if (account) {
+                  setDisplayedCardIndex(newIdx);
+                  await switchAccount(account.id);
+                }
               }}
             >
               ▶
@@ -362,10 +528,10 @@ export default function DashboardPage() {
           </div>
           <h3 className="font-semibold mt-6 mb-4">Actions rapides</h3>
           <div className="grid grid-cols-2 gap-3">
-            <button className="btn-secondary" onClick={() => setShowTransferModal(true)}>Virement</button>
-            <button className="btn-secondary" onClick={() => setShowAccountModal(true)}>Infos compte</button>
-            <button className="btn-secondary" onClick={() => setShowCreateAccountModal(true)}>Nouveau compte</button>
-            <button className="btn-secondary" onClick={() => setShowBeneficiaryModal(true)}>Gérer bénéficiaires</button>
+            <button className="btn-secondary" onClick={() => setShowTransferModal(true)}>{t("dashboard.transfer")}</button>
+            <button className="btn-secondary" onClick={() => setShowAccountModal(true)}>{t("dashboard.accountInfo")}</button>
+            <button className="btn-secondary" onClick={() => setShowCreateAccountModal(true)}>{t("dashboard.newAccount")}</button>
+            <button className="btn-secondary" onClick={() => setShowBeneficiaryModal(true)}>{t("dashboard.manageBeneficiaries")}</button>
           </div>
         </div>
       </div>
@@ -373,72 +539,100 @@ export default function DashboardPage() {
       {/* Transactions */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Dernières transactions</h3>
-          <span className="text-xs text-muted">{transactions.length} éléments</span>
+          <h3 className="font-semibold">{t("dashboard.latestTransactions")}</h3>
+          <span className="text-xs text-muted">{transactions.length} {t("dashboard.elements")}</span>
         </div>
         <div className="divide-y divide-white/10">
           {loading ? (
-            <p className="text-muted text-sm py-4">Chargement…</p>
+            <p className="text-muted text-sm py-4">{t("common.loading")}</p>
           ) : transactions.length === 0 ? (
-            <p className="text-muted text-sm py-4">Pas encore de transactions</p>
+            <p className="text-muted text-sm py-4">{t("dashboard.noTransactionsYet")}</p>
           ) : (
-            transactions.map((t) => (
-              <div key={t.id} className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-white/5 border border-white/10" />
-                  <div>
-                    <p className="font-medium">{t.label}</p>
-                    <p className="text-xs text-muted">{new Date(t.date).toLocaleDateString()}</p>
+              transactions.map((transaction) => {
+                const isInterest = transaction.label.includes(t("dashboard.dailyInterest"));
+              return (
+                <div key={transaction.id} className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full border flex items-center justify-center ${
+                      isInterest 
+                        ? "bg-green-500/10 border-green-500/30 text-green-400" 
+                        : "bg-white/5 border-white/10"
+                    }`}>
+                      {isInterest ? "💰" : ""}
+                    </div>
+                    <div>
+                      <p className="font-medium">{transaction.label}</p>
+                      <p className="text-xs text-muted">{new Date(transaction.date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className={transaction.amount < 0 ? "text-red-400" : isInterest ? "text-green-400" : "text-primary"}>
+                    {transaction.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(transaction.amount))}
                   </div>
                 </div>
-                <div className={t.amount < 0 ? "text-red-400" : "text-primary"}>
-                  {t.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(t.amount))}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
     </div>
 
     {/* Account Info Modal */}
-    {showAccountModal && ibanInfo && (
-      <Modal onClose={() => setShowAccountModal(false)}>
-        {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
-        <h3 className="font-semibold mb-4">Informations du compte</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between"><span className="text-muted">Titulaire</span><span className="font-medium">{clientName}</span></div>
-          <div className="flex items-center justify-between"><span className="text-muted">Type</span><span className="font-medium">{ibanInfo.name ?? "Compte courant"}</span></div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted">IBAN</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{ibanInfo.iban}</span>
-              <button type="button" className="icon-btn" aria-label="Copier l'IBAN" onClick={async () => {
-                try {
-                  await navigator.clipboard?.writeText(ibanInfo.iban!);
-                  setModalBanner("IBAN copié dans le presse‑papiers");
-                  setTimeout(() => setModalBanner(""), 1800);
-                  show("IBAN copié dans le presse‑papiers", "success");
-                } catch {
-                  setModalBanner("Impossible de copier l'IBAN");
-                  setTimeout(() => setModalBanner(""), 1800);
-                  show("Impossible de copier l'IBAN", "error");
-                }
-              }}>
-                <CopyIcon />
-              </button>
+    {showAccountModal && displayedAccount && (() => {
+      // Utiliser le compte actuellement affiché
+      const currentAccount = displayedAccount;
+      
+      return (
+        <Modal onClose={() => setShowAccountModal(false)}>
+          {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
+          <h3 className="font-semibold mb-4">{t("dashboard.accountInfoTitle")}</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.holder")}</span><span className="font-medium">{clientName}</span></div>
+            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.name")}</span><span className="font-medium">{currentAccount.name ?? t("dashboard.checking")}</span></div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted">{t("dashboard.type")}</span>
+              <span className="font-medium">
+                {currentAccount.accountType === "savings" ? t("dashboard.savings") : t("dashboard.checking")}
+              </span>
             </div>
+            {currentAccount.accountType === "savings" && savingsRate !== null && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted">{t("dashboard.savingsRateLabel")}</span>
+                <span className="font-medium text-green-400">
+                  {savingsRate.toFixed(2)}% {t("dashboard.perYear")}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted">IBAN</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{currentAccount.iban}</span>
+                <button type="button" className="icon-btn" aria-label={t("dashboard.copyIban")} onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText(currentAccount.iban);
+                    setModalBanner(t("dashboard.ibanCopied"));
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show(t("dashboard.ibanCopied"), "success");
+                  } catch {
+                    setModalBanner(t("dashboard.cannotCopyIban"));
+                    setTimeout(() => setModalBanner(""), 1800);
+                    show(t("dashboard.cannotCopyIban"), "error");
+                  }
+                }}>
+                  <CopyIcon />
+                </button>
+              </div>
+            </div>
+            {currentAccount.createdAt && (
+              <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.creationDate")}</span><span className="font-medium">{new Date(currentAccount.createdAt).toLocaleDateString("fr-FR")}</span></div>
+            )}
+            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.balance")}</span><span className="font-medium">{formatCurrency(currentAccount.balance)}</span></div>
           </div>
-          {ibanInfo.createdAt && (
-            <div className="flex items-center justify-between"><span className="text-muted">Date de création</span><span className="font-medium">{new Date(ibanInfo.createdAt).toLocaleDateString("fr-FR")}</span></div>
-          )}
-          <div className="flex items-center justify-between"><span className="text-muted">Solde</span><span className="font-medium">{formatCurrency(balance)}</span></div>
-        </div>
-        <div className="mt-6 text-right">
-          <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
-        </div>
-      </Modal>
-    )}
+          <div className="mt-6 text-right">
+            <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
+          </div>
+        </Modal>
+      );
+    })()}
 
     {/* Beneficiary Modal */}
     {showBeneficiaryModal && activeAccountId && (
@@ -461,7 +655,7 @@ export default function DashboardPage() {
         onSuccess={async (amount, toIban) => {
           try {
             await api.transfer(ibanInfo?.iban || "", toIban, amount);
-            show("Virement effectué avec succès", "success");
+            show(t("dashboard.transferSuccess"), "success");
             
             // Update balance
             const clientId = decodeClientId(token);
@@ -482,7 +676,7 @@ export default function DashboardPage() {
                 const newHistory: ActivityHistoryItem[] = [{
                   id: `transfer_out_${Date.now()}`,
                   date: new Date().toISOString(),
-                  label: `Virement effectué vers ${toIban} - ${formatCurrency(amount)}`,
+                  label: `${t("dashboard.transfer")} ${t("dashboard.transferSuccess")} ${toIban} - ${formatCurrency(amount)}`,
                   type: "transfer_out",
                 }, ...existingHistory];
                 setActivityHistory(newHistory);
@@ -497,7 +691,7 @@ export default function DashboardPage() {
             
             setShowTransferModal(false);
           } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Erreur lors du virement";
+            const message = err instanceof Error ? err.message : t("dashboard.transferError");
             show(message, "error");
           }
         }}
@@ -506,15 +700,35 @@ export default function DashboardPage() {
 
     {/* Create Account Modal */}
     {showCreateAccountModal && (
-      <Modal onClose={() => setShowCreateAccountModal(false)}>
-        <h3 className="font-semibold mb-4">Créer un nouveau compte</h3>
+      <Modal onClose={() => {
+        setShowCreateAccountModal(false);
+        setNewAccountName("");
+        setNewAccountType("checking");
+      }}>
+        <h3 className="font-semibold mb-4">{t("dashboard.createNewAccount")}</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Nom du compte</label>
+            <label className="block text-sm font-medium mb-2">{t("dashboard.accountType")}</label>
+            <select
+              className="input-minimal w-full"
+              value={newAccountType}
+              onChange={(e) => setNewAccountType(e.target.value as "checking" | "savings")}
+            >
+              <option value="checking">{t("dashboard.checking")}</option>
+              <option value="savings">{t("dashboard.savings")}</option>
+            </select>
+            {newAccountType === "savings" && (
+              <p className="text-xs text-muted mt-1">
+                {t("dashboard.savingsAccountNote")}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">{t("dashboard.accountName")}</label>
             <input
               type="text"
               className="input-minimal w-full"
-              placeholder="Compte courant"
+              placeholder={newAccountType === "savings" ? t("dashboard.savings") : t("dashboard.checking")}
               value={newAccountName}
               onChange={(e) => setNewAccountName(e.target.value)}
             />
@@ -523,13 +737,14 @@ export default function DashboardPage() {
             <button className="btn-secondary flex-1" onClick={() => {
               setShowCreateAccountModal(false);
               setNewAccountName("");
-            }}>Annuler</button>
+              setNewAccountType("checking");
+            }}>{t("common.cancel")}</button>
             <button className="btn-primary flex-1" onClick={async () => {
               try {
                 const clientId = decodeClientId(token);
                 if (!clientId) return;
-                const created = await api.createAccount(clientId, newAccountName || undefined);
-                const accountName = created.name || "Compte";
+                const created = await api.createAccount(clientId, newAccountName || undefined, newAccountType);
+                const accountName = created.name || t("dashboard.accountName");
                 const list = [created, ...accounts];
                 setAccounts(list);
                 
@@ -540,20 +755,21 @@ export default function DashboardPage() {
                 const newHistory: ActivityHistoryItem[] = [{
                   id: `create-${Date.now()}`,
                   date: new Date().toISOString(),
-                  label: `Compte "${accountName}" créé`,
+                  label: `${newAccountType === "savings" ? t("dashboard.savings") : t("dashboard.accountName")} "${accountName}" ${t("dashboard.accountCreatedActivity")}`,
                   type: "create",
                 }, ...activityHistory];
                 setActivityHistory(newHistory);
                 localStorage.setItem(`activityHistory_${created.id}`, JSON.stringify(newHistory));
                 
-                show("Compte créé", "success");
+                show(newAccountType === "savings" ? t("dashboard.savingsAccountCreated") : t("dashboard.accountCreated"), "success");
                 setShowCreateAccountModal(false);
                 setNewAccountName("");
+                setNewAccountType("checking");
               } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : "Erreur lors de la création";
+                const message = err instanceof Error ? err.message : t("dashboard.createError");
                 show(message, "error");
               }
-            }}>Créer</button>
+            }}>{t("dashboard.createAccount")}</button>
           </div>
         </div>
       </Modal>
@@ -578,23 +794,27 @@ function decodeClientId(token: string | null): string | null {
   }
 }
 
-function BankCard({ balance, holder, last4 }: { balance: number; holder: string; last4: string }) {
+function BankCard({ balance, holder, last4, accountType }: { balance: number; holder: string; last4: string; accountType?: string }) {
+  const { t } = useTranslation();
+  const isSavings = accountType === "savings";
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5 bg-gradient-to-br from-white/5 to-white/0">
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/20 blur-3xl" />
+      <div className={`absolute -right-10 -top-10 h-32 w-32 rounded-full ${isSavings ? "bg-green-500/20" : "bg-primary/20"} blur-3xl`} />
       <div className="relative">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted">Carte Visa</span>
-          <span className="pill">Active</span>
+          <span className="text-sm text-muted">{isSavings ? `💰 ${t("dashboard.savings")}` : t("dashboard.visaCard")}</span>
+          <span className={`pill ${isSavings ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}`}>
+            {isSavings ? t("dashboard.remunerated") : t("dashboard.active")}
+          </span>
         </div>
         <p className="text-lg font-semibold mt-6 tracking-widest">**** **** **** {last4}</p>
         <div className="mt-6 flex items-center justify-between text-sm">
           <div>
-            <p className="text-muted">Titulaire</p>
+            <p className="text-muted">{t("dashboard.holder")}</p>
             <p className="font-medium">{holder}</p>
           </div>
           <div>
-            <p className="text-muted">Solde</p>
+            <p className="text-muted">{t("dashboard.balance")}</p>
             <p className="font-medium">{formatCurrency(balance)}</p>
           </div>
         </div>
@@ -638,6 +858,7 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
   const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { show } = useToast();
+  const { t } = useTranslation();
 
   // When beneficiary is selected, fill the IBAN
   useEffect(() => {
@@ -654,32 +875,32 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
     const numAmount = parseFloat(amount);
     
     if (!toIban.trim()) {
-      show("Veuillez entrer un IBAN destinataire", "error");
+      show(t("dashboard.enterIban"), "error");
       return;
     }
     
     if (!numAmount || numAmount <= 0) {
-      show("Montant invalide", "error");
+      show(t("dashboard.amount") + " " + t("dashboard.invalid"), "error");
       return;
     }
     
     // Validation du solde désactivée pour les tests
     // if (numAmount > balance) {
-    //   show("Solde insuffisant", "error");
+    //   show(t("dashboard.insufficientBalance"), "error");
     //   return;
     // }
 
     // Check if selected beneficiary is not in our bank
     const selectedBeneficiary = selectedBeneficiaryId ? beneficiaries.find(b => b.id === selectedBeneficiaryId) : null;
     if (selectedBeneficiary && !selectedBeneficiary.isInBank) {
-      show("Cette fonctionnalité n'est pas prise en charge pour les bénéficiaires externes. Veuillez contacter un de nos conseillers.", "warning");
+      show(t("dashboard.externalBeneficiaryWarning"), "warning");
       return;
     }
 
     // Also check if manually entered IBAN belongs to a non-bank beneficiary
     const beneficiary = beneficiaries.find(b => b.iban === toIban.trim());
     if (beneficiary && !beneficiary.isInBank) {
-      show("Cette fonctionnalité n'est pas prise en charge pour les bénéficiaires externes. Veuillez contacter un de nos conseillers.", "warning");
+      show(t("dashboard.externalBeneficiaryWarning"), "warning");
       return;
     }
     
@@ -693,27 +914,27 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
 
   return (
     <Modal onClose={onClose}>
-      <h3 className="font-semibold mb-4">Effectuer un virement</h3>
+      <h3 className="font-semibold mb-4">{t("dashboard.makeTransfer")}</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         {beneficiaries.length > 0 && (
           <div>
-            <label className="block text-sm font-medium mb-2">Choisir un bénéficiaire</label>
+            <label className="block text-sm font-medium mb-2">{t("dashboard.selectBeneficiary")}</label>
             <select
               className="input-minimal w-full"
               value={selectedBeneficiaryId}
               onChange={(e) => setSelectedBeneficiaryId(e.target.value)}
             >
-              <option value="">Sélectionner un bénéficiaire ou saisir manuellement</option>
+              <option value="">{t("dashboard.selectOrEnter")}</option>
               {beneficiaries.map(b => (
                 <option key={b.id} value={b.id}>
-                  {b.firstName} {b.lastName} - {b.iban} {!b.isInBank && "(Externe)"}
+                  {b.firstName} {b.lastName} - {b.iban} {!b.isInBank && `(${t("dashboard.external")})`}
                 </option>
               ))}
             </select>
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-2">IBAN destinataire</label>
+          <label className="block text-sm font-medium mb-2">{t("dashboard.iban")} {t("dashboard.recipient")}</label>
           <input
             type="text"
             className="input-minimal w-full"
@@ -727,7 +948,7 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Montant</label>
+          <label className="block text-sm font-medium mb-2">{t("dashboard.amount")}</label>
           <input
             type="number"
             step="0.01"
@@ -738,12 +959,12 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
             onChange={(e) => setAmount(e.target.value)}
             required
           />
-          <p className="text-xs text-muted mt-1">Solde disponible: {formatCurrency(balance)}</p>
+          <p className="text-xs text-muted mt-1">{t("dashboard.availableBalance")}: {formatCurrency(balance)}</p>
         </div>
         <div className="flex gap-3 mt-6">
-          <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={loading}>Annuler</button>
+          <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={loading}>{t("common.cancel")}</button>
           <button type="submit" className="btn-primary flex-1" disabled={loading}>
-            {loading ? "Envoi..." : "Envoyer"}
+            {loading ? t("contact.sending") : t("contact.send")}
           </button>
         </div>
       </form>
@@ -759,14 +980,15 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
   const [verificationResult, setVerificationResult] = useState<{ exists: boolean; verified?: boolean; firstName?: string; lastName?: string; message?: string } | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { show } = useToast();
+  const { t } = useTranslation();
 
   const handleVerify = async () => {
     if (!iban.trim()) {
-      show("Veuillez entrer un IBAN", "error");
+      show(t("dashboard.enterIbanError"), "error");
       return;
     }
     if (!firstName.trim() || !lastName.trim()) {
-      show("Veuillez entrer le nom et prénom", "error");
+      show(t("dashboard.enterNameError"), "error");
       return;
     }
 
@@ -786,7 +1008,7 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
         addBeneficiary(result.firstName || firstName.trim(), result.lastName || lastName.trim(), true);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erreur lors de la vérification";
+      const message = err instanceof Error ? err.message : t("dashboard.verificationError");
       show(message, "error");
     } finally {
       setLoading(false);
@@ -804,13 +1026,13 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
     
     // Check if already exists
     if (beneficiaries.some(b => b.iban === newBeneficiary.iban)) {
-      show("Ce bénéficiaire existe déjà", "error");
+      show(t("dashboard.beneficiaryExists"), "error");
       return;
     }
     
     const updated = [newBeneficiary, ...beneficiaries];
     onUpdate(updated);
-    show("Bénéficiaire ajouté", "success");
+    show(t("dashboard.beneficiaryAdded"), "success");
     
     // Reset form
     setIban("");
@@ -821,21 +1043,21 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Supprimer ce bénéficiaire ?")) return;
+    if (!confirm(t("dashboard.deleteBeneficiaryConfirm"))) return;
     const updated = beneficiaries.filter(b => b.id !== id);
     onUpdate(updated);
-    show("Bénéficiaire supprimé", "success");
+    show(t("dashboard.beneficiaryDeleted"), "success");
   };
 
   return (
     <Modal onClose={onClose}>
-      <h3 className="font-semibold mb-4">Gérer les bénéficiaires</h3>
+      <h3 className="font-semibold mb-4">{t("dashboard.manageBeneficiaries")}</h3>
       
       {/* Add beneficiary form */}
       <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
-        <h4 className="text-sm font-medium">Ajouter un bénéficiaire</h4>
+        <h4 className="text-sm font-medium">{t("dashboard.addBeneficiaryTitle")}</h4>
         <div>
-          <label className="block text-sm font-medium mb-2">IBAN</label>
+          <label className="block text-sm font-medium mb-2">{t("dashboard.iban")}</label>
           <input
             type="text"
             className="input-minimal w-full"
@@ -845,33 +1067,33 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Prénom</label>
+          <label className="block text-sm font-medium mb-2">{t("dashboard.firstName")}</label>
           <input
             type="text"
             className="input-minimal w-full"
-            placeholder="Prénom"
+            placeholder={t("dashboard.firstName")}
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Nom</label>
+          <label className="block text-sm font-medium mb-2">{t("dashboard.lastName")}</label>
           <input
             type="text"
             className="input-minimal w-full"
-            placeholder="Nom"
+            placeholder={t("dashboard.lastName")}
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
           />
         </div>
         {verificationResult && !verificationResult.exists && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm text-yellow-400">
-            Ce bénéficiaire ne fait pas partie de notre banque.
+            {t("dashboard.externalBeneficiary")}
           </div>
         )}
         {verificationResult && verificationResult.exists && !verificationResult.verified && (
           <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded text-sm text-orange-400">
-            Le RIB existe mais le bénéficiaire est : {verificationResult.firstName} {verificationResult.lastName}
+            {t("dashboard.beneficiaryExistsMessage")}: {verificationResult.firstName} {verificationResult.lastName}
           </div>
         )}
         <button
@@ -879,7 +1101,7 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
           onClick={handleVerify}
           disabled={loading}
         >
-          {loading ? "Vérification..." : "Ajouter bénéficiaire"}
+          {loading ? t("dashboard.verifying") : t("dashboard.addBeneficiaryBtn")}
         </button>
       </div>
 
@@ -888,14 +1110,14 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
         <div className="fixed inset-0 z-[70] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowConfirmDialog(false)} />
           <div className="relative glass border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-glow">
-            <h4 className="font-semibold mb-4">Confirmer l&apos;ajout</h4>
+            <h4 className="font-semibold mb-4">{t("dashboard.confirmAdd")}</h4>
             {!verificationResult.exists ? (
               <p className="text-sm mb-4">
-                Ce bénéficiaire ne fait pas partie de notre banque. Souhaitez-vous l&apos;ajouter quand même ?
+                {t("dashboard.externalBeneficiary")} {t("dashboard.confirmAddQuestion")}
               </p>
             ) : (
               <p className="text-sm mb-4">
-                Le RIB existe mais le bénéficiaire est : <strong>{verificationResult.firstName} {verificationResult.lastName}</strong>. Souhaitez-vous l&apos;ajouter quand même ?
+                {t("dashboard.beneficiaryExistsMessage")}: <strong>{verificationResult.firstName} {verificationResult.lastName}</strong>. {t("dashboard.confirmAddQuestion")}
               </p>
             )}
             <div className="flex gap-3">
@@ -906,7 +1128,7 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
                   setVerificationResult(null);
                 }}
               >
-                Annuler
+                {t("common.cancel")}
               </button>
               <button
                 className="btn-primary flex-1"
@@ -918,7 +1140,7 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
                   }
                 }}
               >
-                Ajouter
+                {t("dashboard.addBeneficiary")}
               </button>
             </div>
           </div>
@@ -927,9 +1149,9 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
 
       {/* List of beneficiaries */}
       <div>
-        <h4 className="text-sm font-medium mb-3">Bénéficiaires enregistrés</h4>
+        <h4 className="text-sm font-medium mb-3">{t("dashboard.registeredBeneficiaries")}</h4>
         {beneficiaries.length === 0 ? (
-          <p className="text-muted text-sm py-4">Aucun bénéficiaire enregistré</p>
+          <p className="text-muted text-sm py-4">{t("dashboard.noBeneficiaries")}</p>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {beneficiaries.map(b => (
@@ -937,12 +1159,12 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
                 <div>
                   <p className="font-medium">{b.firstName} {b.lastName}</p>
                   <p className="text-xs text-muted">{b.iban}</p>
-                  {!b.isInBank && <span className="text-xs text-yellow-400">(Externe)</span>}
+                  {!b.isInBank && <span className="text-xs text-yellow-400">({t("dashboard.external")})</span>}
                 </div>
                 <button
                   className="icon-btn text-red-400"
                   onClick={() => handleDelete(b.id)}
-                  aria-label="Supprimer"
+                  aria-label={t("common.delete")}
                 >
                   ✕
                 </button>
@@ -953,7 +1175,7 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
       </div>
 
       <div className="mt-6 text-right">
-        <button className="btn-primary" onClick={onClose}>Fermer</button>
+        <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
       </div>
     </Modal>
   );

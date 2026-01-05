@@ -35,7 +35,6 @@ export async function seedDirector(dataSource: DataSource) {
   director.isVerified = true;
   director.role = "DIRECTOR";
   director.isBanned = false;
-  director.accountIds = [];
 
   await clientRepo.save(director);
   

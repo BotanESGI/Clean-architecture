@@ -28,7 +28,15 @@ export class ConfirmClientRegistration {
     await this.clientRepository.update(client);
   
     const iban = IBAN.generateFR();
-    const account = new Account(crypto.randomUUID(), client.getId(), iban);
+    const account = new Account(
+      crypto.randomUUID(),
+      client.getId(),
+      iban,
+      "Compte courant",
+      0,
+      false,
+      "checking"
+    );
     await this.accountRepository.create(account);
   
     client.addAccountId(account.id);
