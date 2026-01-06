@@ -160,6 +160,18 @@ export const api = {
     recordCreditPayment: (creditId: string, token: string) =>
       request<{ message: string; paymentDetails: { interestAmount: number; capitalAmount: number; insuranceAmount: number; newRemainingCapital: number } }>(`/advisor/credits/${creditId}/payment`, "POST", undefined, token),
   },
+
+  // Investment APIs (Client)
+  invest: {
+    listStocks: () =>
+      request<{ stocks: Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean; createdAt: string }> }>("/stocks", "GET"),
+    
+    placeOrder: (payload: { stockId: string; type: "BUY" | "SELL"; quantity: number; accountId: string }, token: string) =>
+      request<{ message: string; order: { id: string; clientId: string; stockId: string; type: string; quantity: number; price: number; fee: number; status: string; createdAt: string } }>("/invest/orders", "POST", payload, token),
+    
+    listMyOrders: (token: string) =>
+      request<{ orders: Array<{ id: string; clientId: string; stockId: string; type: string; quantity: number; price: number; fee: number; status: string; createdAt: string }> }>("/invest/orders", "GET", undefined, token),
+  },
 };
 
 export default api;

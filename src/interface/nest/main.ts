@@ -44,6 +44,7 @@ import { CreateStock } from "../../application/use-cases/CreateStock";
 import { UpdateStock } from "../../application/use-cases/UpdateStock";
 import { DeleteStock } from "../../application/use-cases/DeleteStock";
 import { ListAllStocks } from "../../application/use-cases/ListAllStocks";
+import { InvestmentController } from "../controllers/InvestmentController";
 import { CreateCredit } from "../../application/use-cases/CreateCredit";
 import { ActivateCredit } from "../../application/use-cases/ActivateCredit";
 import { ListCredits } from "../../application/use-cases/ListCredits";
@@ -199,6 +200,15 @@ async function startServer() {
     clientRepository
   );
 
+  // --- Controller (Investment) ---
+  const investmentController = new InvestmentController(
+    AppDataSource,
+    stockRepository,
+    accountRepository,
+    transactionRepository,
+    listAllStocks
+  );
+
   // --- Controller (Private Messages) ---
   const privateMessageController = new PrivateMessageController(
     listPrivateMessages,
@@ -312,6 +322,11 @@ async function startServer() {
 
   // --- Routes Savings (public) ---
   app.get("/savings-rate", savingsController.getSavingsRate);
+
+  // --- Routes Investment (public + client) ---
+  app.get("/stocks", investmentController.listStocks);
+  app.post("/invest/orders", investmentController.place);
+  app.get("/invest/orders", investmentController.listClientOrders);
 
   // --- Routes Private Messages ---
   app.get("/private-messages/advisor", async (_req, res) => {

@@ -56,6 +56,9 @@ export default function DashboardPage() {
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
   const [savingsRate, setSavingsRate] = useState<number | null>(null);
+  const [stocks, setStocks] = useState<Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean }>>([]);
+  const [orders, setOrders] = useState<Array<{ id: string; stockId: string; type: string; quantity: number; price: number; fee: number; status: string; createdAt: string }>>([]);
+  const [showInvestModal, setShowInvestModal] = useState(false);
 
   // Load account data (transactions and activity history) for a specific account
   const loadAccountData = useCallback(async (accountId: string) => {
@@ -185,14 +188,25 @@ export default function DashboardPage() {
           return;
         }
         
-        const [profile, list, rateData] = await Promise.all([
+        const [profile, list, rateData, stocksData, ordersData] = await Promise.all([
           api.getClient(clientId),
           api.listAccounts(clientId),
           api.getSavingsRate().catch(() => ({ rate: null })),
+          api.invest.listStocks().catch((err) => {
+            console.error("Error loading stocks:", err);
+            return { stocks: [] };
+          }),
+          api.invest.listMyOrders(token).catch((err) => {
+            console.error("Error loading orders:", err);
+            return { orders: [] };
+          }),
         ]);
         
         setClientName(`${profile.firstname} ${profile.lastname}`);
         setAccounts(list);
+        setStocks(stocksData.stocks || []);
+        setOrders(ordersData.orders || []);
+        console.log("Stocks loaded:", stocksData.stocks?.length || 0, stocksData.stocks);
         
         // Initialiser le dernier taux connu et vérifier les changements
         if (rateData.rate !== null) {
@@ -532,6 +546,83 @@ export default function DashboardPage() {
             <button className="btn-secondary" onClick={() => setShowAccountModal(true)}>{t("dashboard.accountInfo")}</button>
             <button className="btn-secondary" onClick={() => setShowCreateAccountModal(true)}>{t("dashboard.newAccount")}</button>
             <button className="btn-secondary" onClick={() => setShowBeneficiaryModal(true)}>{t("dashboard.manageBeneficiaries")}</button>
+          <button className="btn-secondary" onClick={() => setShowInvestModal(true)}>Investir</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Investment Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Investissements</h3>
+          <button className="btn-secondary text-sm" onClick={async () => {
+            try {
+              const [stocksData, ordersData] = await Promise.all([
+                api.invest.listStocks(),
+                api.invest.listMyOrders(token || "")
+              ]);
+              setStocks(stocksData.stocks);
+              setOrders(ordersData.orders);
+            } catch (err) {
+              console.error("Error loading investment data:", err);
+            }
+          }}>Actualiser</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-sm font-medium mb-3">Mes ordres</h4>
+            <div className="divide-y divide-white/10 max-h-64 overflow-y-auto">
+              {orders.length === 0 ? (
+                <p className="text-muted text-sm py-4">Aucun ordre</p>
+              ) : (
+                orders.map((order) => {
+                  const stock = stocks.find(s => s.id === order.stockId);
+                  return (
+                    <div key={order.id} className="py-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{order.type === "BUY" ? "🟢 Achat" : "🔴 Vente"} {stock?.symbol || order.stockId}</p>
+                          <p className="text-xs text-muted">{order.quantity} × {order.price.toFixed(2)}€ + {order.fee}€ frais</p>
+                        </div>
+                        <span className={`pill text-xs ${order.status === "EXECUTED" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                          {order.status === "EXECUTED" ? "Exécuté" : order.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium mb-3">Actions disponibles ({stocks.length})</h4>
+            <div className="divide-y divide-white/10 max-h-64 overflow-y-auto">
+              {stocks.length === 0 ? (
+                <div className="text-muted text-sm py-4">
+                  <p>Aucune action disponible</p>
+                  <p className="text-xs mt-2">Le directeur doit créer des actions d'abord</p>
+                </div>
+              ) : (
+                stocks.map((stock) => (
+                  <div key={stock.id} className="py-2 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{stock.symbol} - {stock.name}</p>
+                      <p className="text-xs text-muted">{formatCurrency(stock.currentPrice)}</p>
+                    </div>
+                    <button 
+                      className="btn-secondary text-xs"
+                      onClick={() => {
+                        setShowInvestModal(true);
+                        // Stocker le stock sélectionné pour le formulaire
+                        (window as any).selectedStockId = stock.id;
+                      }}
+                    >
+                      Investir
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -774,6 +865,46 @@ export default function DashboardPage() {
         </div>
       </Modal>
     )}
+
+    {/* Investment Modal */}
+    {showInvestModal && (
+      <InvestmentModal
+        stocks={stocks}
+        accounts={accounts}
+        token={token}
+        onClose={() => {
+          setShowInvestModal(false);
+          (window as any).selectedStockId = null;
+        }}
+        onSuccess={async () => {
+          // Recharger les données
+          try {
+            const [stocksData, ordersData, clientId] = await Promise.all([
+              api.invest.listStocks(),
+              api.invest.listMyOrders(token || ""),
+              Promise.resolve(decodeClientId(token))
+            ]);
+            setStocks(stocksData.stocks);
+            setOrders(ordersData.orders);
+            if (clientId) {
+              const list = await api.listAccounts(clientId);
+              setAccounts(list);
+              const currentAccount = list.find(a => a.id === activeAccountId);
+              if (currentAccount) {
+                setBalance(currentAccount.balance);
+              }
+            }
+            if (activeAccountId) {
+              await loadAccountData(activeAccountId);
+            }
+          } catch (err) {
+            console.error("Error reloading data:", err);
+          }
+          setShowInvestModal(false);
+          (window as any).selectedStockId = null;
+        }}
+      />
+    )}
     </>
   );
 }
@@ -965,6 +1096,169 @@ function TransferModal({ balance, beneficiaries, onClose, onSuccess }: { balance
           <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={loading}>{t("common.cancel")}</button>
           <button type="submit" className="btn-primary flex-1" disabled={loading}>
             {loading ? t("contact.sending") : t("contact.send")}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function InvestmentModal({ stocks, accounts, token, onClose, onSuccess }: { 
+  stocks: Array<{ id: string; symbol: string; name: string; currentPrice: number }>; 
+  accounts: Array<{ id: string; name: string; balance: number }>; 
+  token: string | null;
+  onClose: () => void;
+  onSuccess: () => Promise<void>;
+}) {
+  const [selectedStockId, setSelectedStockId] = useState<string>("");
+  const [orderType, setOrderType] = useState<"BUY" | "SELL">("BUY");
+  const [quantity, setQuantity] = useState("");
+  const [accountId, setAccountId] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const { show } = useToast();
+
+  // Charger les stocks au montage
+  useEffect(() => {
+    if (stocks.length === 0) {
+      api.invest.listStocks().then(data => {
+        // Les stocks seront mis à jour par le parent
+      }).catch(err => console.error(err));
+    }
+    const preselected = (window as any).selectedStockId;
+    if (preselected) {
+      setSelectedStockId(preselected);
+    }
+  }, []);
+
+  const selectedStock = stocks.find(s => s.id === selectedStockId);
+  const selectedAccount = accounts.find(a => a.id === accountId);
+  const totalCost = selectedStock && quantity ? (parseFloat(quantity) * selectedStock.currentPrice + 1) : 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) {
+      show("Vous devez être connecté", "error");
+      return;
+    }
+    if (!selectedStockId || !quantity || !accountId) {
+      show("Veuillez remplir tous les champs", "error");
+      return;
+    }
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      show("La quantité doit être un nombre entier supérieur à 0", "error");
+      return;
+    }
+    if (orderType === "BUY" && selectedAccount && selectedAccount.balance < totalCost) {
+      show("Solde insuffisant", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.invest.placeOrder({
+        stockId: selectedStockId,
+        type: orderType,
+        quantity: qty,
+        accountId
+      }, token);
+      show(orderType === "BUY" ? "Ordre d'achat exécuté" : "Ordre de vente exécuté", "success");
+      await onSuccess();
+    } catch (err: any) {
+      show(err.message || "Erreur lors de l'ordre", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="font-semibold mb-4">Passer un ordre</h3>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Action</label>
+          <select
+            className="input-minimal w-full"
+            value={selectedStockId}
+            onChange={(e) => setSelectedStockId(e.target.value)}
+            required
+          >
+            <option value="">Sélectionner une action</option>
+            {stocks.map(stock => (
+              <option key={stock.id} value={stock.id}>
+                {stock.symbol} - {stock.name} ({formatCurrency(stock.currentPrice)})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Type d'ordre</label>
+          <select
+            className="input-minimal w-full"
+            value={orderType}
+            onChange={(e) => setOrderType(e.target.value as "BUY" | "SELL")}
+            required
+          >
+            <option value="BUY">🟢 Achat</option>
+            <option value="SELL">🔴 Vente</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Quantité</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            className="input-minimal w-full"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Compte</label>
+          <select
+            className="input-minimal w-full"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            required
+          >
+            <option value="">Sélectionner un compte</option>
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} - {formatCurrency(acc.balance)}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedStock && quantity && (
+          <div className="p-3 bg-white/5 rounded border border-white/10">
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-muted">Prix unitaire:</span>
+              <span>{formatCurrency(selectedStock.currentPrice)}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-muted">Quantité:</span>
+              <span>{quantity}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-muted">Frais:</span>
+              <span>{formatCurrency(1)}</span>
+            </div>
+            <div className="flex justify-between font-semibold mt-2 pt-2 border-t border-white/10">
+              <span>Total {orderType === "BUY" ? "à débiter" : "à créditer"}:</span>
+              <span className={orderType === "BUY" ? "text-red-400" : "text-green-400"}>
+                {formatCurrency(totalCost)}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-3 mt-6">
+          <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={loading}>
+            Annuler
+          </button>
+          <button type="submit" className="btn-primary flex-1" disabled={loading}>
+            {loading ? "Traitement..." : "Valider l'ordre"}
           </button>
         </div>
       </form>

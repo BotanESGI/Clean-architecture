@@ -86,3 +86,21 @@ CREATE TABLE IF NOT EXISTS private_messages (
     FOREIGN KEY (sender_id) REFERENCES clients(id) ON DELETE CASCADE,
     FOREIGN KEY (receiver_id) REFERENCES clients(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des ordres d'investissement (achat/vente d'actions)
+CREATE TABLE IF NOT EXISTS orders (
+    id VARCHAR(255) PRIMARY KEY,
+    client_id VARCHAR(255) NOT NULL,
+    stock_id VARCHAR(255) NOT NULL,
+    type VARCHAR(10) NOT NULL COMMENT 'BUY ou SELL',
+    quantity INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    fee DECIMAL(10, 2) DEFAULT 1.00,
+    status VARCHAR(20) DEFAULT 'PENDING' COMMENT 'PENDING, EXECUTED, CANCELLED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_client_id (client_id),
+    INDEX idx_stock_id (stock_id),
+    INDEX idx_created_at (created_at),
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
