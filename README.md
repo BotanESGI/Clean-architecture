@@ -56,7 +56,8 @@ La page d'accueil présente une interface moderne avec un thème sombre et des a
 ## 🛠 Technologies utilisées
 
 ### Backend
-- **Node.js** avec **Express** (v5.1.0) - Framework web
+- **Node.js** avec **Express** (v5.1.0) - Framework web principal
+- **NestJS** (v10.0.0) - Framework web secondaire (module notifications)
 - **TypeScript** (v5.9.3) - Langage de programmation typé
 - **Clean Architecture** - Séparation en couches (Domain, Application, Infrastructure, Interface)
 - **JWT** (jsonwebtoken) - Authentification par tokens
@@ -92,11 +93,14 @@ src/
 │   └── services/          # Interfaces de services
 ├── infrastructure/         # Couche infrastructure (implémentations)
 │   ├── adapters/          # Implémentations concrètes
-│   │   └── in-memory/     # Repositories en mémoire
+│   │   ├── in-memory/     # Repositories en mémoire
+│   │   └── mysql/        # Repositories MySQL
 │   └── services/          # Services externes (Email)
 └── interface/             # Couche interface (API, UI)
     ├── controllers/       # Contrôleurs Express
-    └── nest/              # Point d'entrée serveur
+    ├── nestjs/            # Modules NestJS
+    │   └── notification/ # Module notifications (NestJS)
+    └── nest/              # Point d'entrée serveur (Express + NestJS)
 ```
 
 ### Principes respectés
@@ -105,6 +109,8 @@ src/
 2. **Indépendance des frameworks** : Le domaine ne dépend d'aucun framework
 3. **Testabilité** : Chaque couche peut être testée indépendamment
 4. **Indépendance de la base de données** : Les repositories sont abstraits, facilement remplaçables
+5. **2 adaptateurs de base de données** : In-memory (développement) et MySQL (production)
+6. **2 frameworks backend** : Express (routes principales) et NestJS (module notifications)
 
 ### Flux de données
 
@@ -206,7 +212,7 @@ docker-compose up --build
 - Authentification : en tant que conseiller bancaire, je peux m’authentifier. ✅
 - Crédit : en tant que conseiller bancaire, je peux être amené à octroyer des crédit. Un crédit a un taux annuel d’intérêts à rembourser sur le capital
 restant chaque mois, une assurance (obligatoire) à un taux dont le montant est calculé sur le total du crédit accordé et prélevé sur les mensualités, et des mensualités qui correspondent au montant du crédit remboursé chaque mois. Nous utilisons la méthode de calcul du crédit à mensualité constante.✅
-- Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu’un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d’un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers. (frontend  ✅, backend ❌ )
+- Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu’un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d’un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers.
 
 ## 📚 Structure du projet
 
@@ -278,6 +284,13 @@ frontend/src/
 
 ## 🔌 Endpoints API
 
+### Frameworks utilisés
+- **Express** : Routes principales (`/clients/*`, `/accounts/*`, `/transfers/*`, etc.)
+- **NestJS** : Module notifications (`/api/v2/notifications/*`)
+
+
+PS C:\Users\kileu\Desktop\Clean-architecture> Invoke-WebRequest -Uri "http://localhost:4000/api/v2/notifications" -Method GET -UseBasicParsing
+
 ### Authentification
 - `POST /clients/register` - Inscription d'un nouveau client
 - `POST /clients/login` - Connexion
@@ -291,6 +304,9 @@ frontend/src/
 - `GET /accounts/:clientId/iban` - IBAN d'un compte
 - `PATCH /accounts/:id` - Renommer un compte
 - `DELETE /accounts/:id` - Supprimer un compte
+
+### Notifications (NestJS)
+- `POST /api/v2/notifications` - Envoyer une notification (via NestJS)
 
 ## 🎨 Design System
 
@@ -310,7 +326,7 @@ frontend/src/
 
 ## 📝 Notes de développement
 
-- Le projet utilise un repository **in-memory** pour le développement (les données sont perdues au redémarrage)
+- Le projet utilise un repository **MySQL** en production (les données sont persistantes)
 - Les emails sont simulés en développement si les credentials SMTP ne sont pas configurés
 - L'historique d'activités est stocké dans `localStorage` côté frontend
 - Le token JWT est stocké dans `localStorage` et persiste entre les sessions

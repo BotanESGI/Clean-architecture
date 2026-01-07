@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 class Client {
-    constructor(id, firstName, lastName, email, passwordHashed, isVerified = false, accountIds = []) {
+    constructor(id, firstName, lastName, email, passwordHashed, isVerified = false, accountIds = [], role = 'CLIENT', isBanned = false) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -10,6 +10,8 @@ class Client {
         this.passwordHashed = passwordHashed;
         this.isVerified = isVerified;
         this.accountIds = accountIds;
+        this.role = role;
+        this.isBanned = isBanned;
     }
     getId() {
         return this.id;
@@ -46,6 +48,15 @@ class Client {
     }
     getPasswordHash() {
         return this.passwordHashed;
+    }
+    getRole() {
+        return this.role;
+    }
+    getIsBanned() {
+        return this.isBanned;
+    }
+    setIsBanned(banned) {
+        this.isBanned = banned;
     }
 }
 exports.Client = Client;

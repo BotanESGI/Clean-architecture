@@ -4,6 +4,8 @@ import { createServer, Server as HTTPServer } from "http";
 import bodyParser from "body-parser";
 import "dotenv/config";
 import cors from "cors";
+import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter } from '@nestjs/platform-express';
 
 import { ClientController } from "../controllers/ClientController";
 import { RealEmailService } from "../../infrastructure/services/EmailService";
@@ -242,6 +244,9 @@ async function startServer() {
   const app = express();
   const httpServer = createServer(app);
   
+  // Middlewares de base DOIVENT être configurés AVANT NestJS
+  app.use(bodyParser.json());
+  
   // --- WebSocket Server ---
   const privateMessageSocket = new PrivateMessageSocket(
     httpServer,
@@ -251,22 +256,22 @@ async function startServer() {
   );
 
   // --- Use case SendNotification (doit être créé après le WebSocket) ---
+  const sendNotificationCallback = (clientId: string, title: string, message: string) => {
+    // Envoyer via WebSocket
+    privateMessageSocket.sendMessageToUser(clientId, "notification", {
+      title,
+      message,
+    });
+  };
+
   const sendNotification = new SendNotification(
     clientRepository,
-    (clientId: string, title: string, message: string) => {
-      // Envoyer via WebSocket
-      privateMessageSocket.sendMessageToUser(clientId, "notification", {
-        title,
-        message,
-      });
-    }
+    sendNotificationCallback
   );
 
-  // --- Controller (Notifications) ---
+  // --- Controller (Notifications) Express ---
   const { NotificationController } = await import("../controllers/NotificationController");
   const notificationController = new NotificationController(sendNotification);
-
-  app.use(bodyParser.json());
 
   // Allow cross-origin requests from dev frontends (Next.js dev servers)
   const FRONT_ORIGINS = (process.env.FRONT_ORIGIN || "http://localhost:3000,http://localhost:3001")
@@ -417,6 +422,38 @@ async function startServer() {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", database: "connected" });
   });
+
+  // --- Intégration NestJS (2ème framework backend pour respecter la contrainte) ---
+  // IMPORTANT: NestJS doit être initialisé APRÈS toutes les routes Express pour éviter les conflits
+  // On a choisi NestJS pour le module notifications car il offre une bonne gestion des dépendances
+  const { NotificationModule } = await import("../nestjs/notification/notification.module");
+  
+  // Créer l'app NestJS en utilisant l'adaptateur Express pour partager le même serveur
+  const nestApp = await NestFactory.create(
+    NotificationModule.forRoot(clientRepository, sendNotificationCallback),
+    new ExpressAdapter(app),
+    { logger: false } // Pas besoin de logger NestJS, on utilise déjà celui d'Express
+  );
+
+  // Activer CORS dans NestJS (nécessaire même si Express l'a déjà)
+  nestApp.enableCors({
+    origin: (origin, callback) => {
+      const FRONT_ORIGINS = (process.env.FRONT_ORIGIN || "http://localhost:3000,http://localhost:3001")
+        .split(",")
+        .map(o => o.trim());
+      if (!origin) return callback(null, true);
+      const allowed = FRONT_ORIGINS.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin);
+      callback(allowed ? null : new Error("Origin not allowed"), allowed);
+    },
+  });
+
+  // Préfixe pour éviter les conflits avec les routes Express
+  nestApp.setGlobalPrefix('api/v2');
+  
+  // Initialiser NestJS sans démarrer un serveur séparé (on utilise celui d'Express)
+  await nestApp.init();
+  
+  console.log('✅ NestJS intégré - Routes disponibles sous /api/v2/notifications');
 
   // --- Port configurable (évite conflit avec Next.js) ---
   const PORT = Number(process.env.PORT ?? 4000);

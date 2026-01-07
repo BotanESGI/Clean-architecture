@@ -19,5 +19,11 @@ class InMemoryClientRepository {
     async findByEmail(email) {
         return this.clients.find(c => c.getEmail() === email) ?? null;
     }
+    async findAll() {
+        return this.clients;
+    }
+    async delete(id) {
+        this.clients = this.clients.filter(c => c.getId() !== id);
+    }
 }
 exports.InMemoryClientRepository = InMemoryClientRepository;

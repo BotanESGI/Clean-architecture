@@ -43,11 +43,12 @@ class MySQLAccountRepository {
         entity.name = account.name;
         entity.balance = account.balance;
         entity.isClosed = account.isClosed;
+        entity.accountType = account.accountType;
         entity.createdAt = account.createdAt;
         return entity;
     }
     toDomain(entity) {
-        const account = new Account_1.Account(entity.id, entity.clientId, entity.iban, entity.name, Number(entity.balance), entity.isClosed, entity.createdAt);
+        const account = new Account_1.Account(entity.id, entity.clientId, entity.iban, entity.name, Number(entity.balance), entity.isClosed, entity.accountType || "checking", entity.createdAt);
         return account;
     }
 }

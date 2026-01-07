@@ -20,6 +20,7 @@ class AccountController {
                 iban: acc.iban,
                 name: acc.name,
                 balance: acc.balance,
+                accountType: acc.accountType,
                 createdAt: acc.createdAt ? acc.createdAt.toISOString() : undefined,
             });
         };
@@ -56,6 +57,7 @@ class AccountController {
                 iban: acc.iban,
                 name: acc.name,
                 balance: acc.balance,
+                accountType: acc.accountType,
                 createdAt: acc.createdAt ? acc.createdAt.toISOString() : undefined,
             }));
             res.status(200).json(serialized);

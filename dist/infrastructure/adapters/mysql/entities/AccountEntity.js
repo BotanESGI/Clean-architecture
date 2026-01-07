@@ -20,7 +20,7 @@ __decorate([
     __metadata("design:type", String)
 ], AccountEntity.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: "client_id" }),
     __metadata("design:type", String)
 ], AccountEntity.prototype, "clientId", void 0);
 __decorate([
@@ -28,7 +28,7 @@ __decorate([
     __metadata("design:type", String)
 ], AccountEntity.prototype, "iban", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: "Compte courant" }),
+    (0, typeorm_1.Column)({ name: "custom_name", default: "Compte courant" }),
     __metadata("design:type", String)
 ], AccountEntity.prototype, "name", void 0);
 __decorate([
@@ -36,11 +36,15 @@ __decorate([
     __metadata("design:type", Number)
 ], AccountEntity.prototype, "balance", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: false }),
+    (0, typeorm_1.Column)({ name: "is_closed", default: false }),
     __metadata("design:type", Boolean)
 ], AccountEntity.prototype, "isClosed", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.Column)({ name: "account_type", type: "enum", enum: ["checking", "savings"], default: "checking" }),
+    __metadata("design:type", String)
+], AccountEntity.prototype, "accountType", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ name: "created_at" }),
     __metadata("design:type", Date)
 ], AccountEntity.prototype, "createdAt", void 0);
 __decorate([

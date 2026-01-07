@@ -21,15 +21,18 @@ class LoginClient {
         // Vérification que le compte est confirmé
         if (!client.getIsVerified())
             throw new Error("Compte non vérifié. Merci de confirmer votre email.");
-        // Génération d’un JWT pour la session
+        // Vérification que le compte n'est pas banni
+        if (client.getIsBanned())
+            throw new Error("Votre compte a été banni.");
+        // Génération d'un JWT pour la session
         const secret = process.env.JWT_SECRET;
         if (!secret)
             throw new Error("JWT_SECRET non défini");
-        const payload = { clientId: client.getId() };
+        const payload = { clientId: client.getId(), role: client.getRole() };
         const expiresInEnv = process.env.JWT_EXPIRES_IN;
         const options = { expiresIn: expiresInEnv ? expiresInEnv : "1d" };
         const token = jsonwebtoken_1.default.sign(payload, secret, options);
-        return token;
+        return { token, role: client.getRole() };
     }
 }
 exports.LoginClient = LoginClient;

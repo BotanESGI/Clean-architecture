@@ -2,13 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Account = void 0;
 class Account {
-    constructor(id, clientId, iban, _name = "Compte courant", balance = 0, _isClosed = false, createdAt = new Date()) {
+    constructor(id, clientId, iban, _name = "Compte courant", balance = 0, _isClosed = false, accountType = "checking", createdAt = new Date()) {
         this.id = id;
         this.clientId = clientId;
         this.iban = iban;
         this._name = _name;
         this.balance = balance;
         this._isClosed = _isClosed;
+        this.accountType = accountType;
         this.createdAt = createdAt;
     }
     get name() {

@@ -19,11 +19,11 @@ __decorate([
     __metadata("design:type", String)
 ], ClientEntity.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: "first_name" }),
     __metadata("design:type", String)
 ], ClientEntity.prototype, "firstName", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: "last_name" }),
     __metadata("design:type", String)
 ], ClientEntity.prototype, "lastName", void 0);
 __decorate([
@@ -31,17 +31,25 @@ __decorate([
     __metadata("design:type", String)
 ], ClientEntity.prototype, "email", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: "password_hash" }),
     __metadata("design:type", String)
 ], ClientEntity.prototype, "passwordHashed", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: false }),
+    (0, typeorm_1.Column)({ name: "is_verified", default: false }),
     __metadata("design:type", Boolean)
 ], ClientEntity.prototype, "isVerified", void 0);
 __decorate([
-    (0, typeorm_1.Column)("simple-array", { nullable: true }),
-    __metadata("design:type", Array)
-], ClientEntity.prototype, "accountIds", void 0);
+    (0, typeorm_1.Column)({ name: "verification_token", nullable: true }),
+    __metadata("design:type", String)
+], ClientEntity.prototype, "verificationToken", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 'CLIENT' }),
+    __metadata("design:type", String)
+], ClientEntity.prototype, "role", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: "is_banned", default: false }),
+    __metadata("design:type", Boolean)
+], ClientEntity.prototype, "isBanned", void 0);
 exports.ClientEntity = ClientEntity = __decorate([
     (0, typeorm_1.Entity)("clients")
 ], ClientEntity);

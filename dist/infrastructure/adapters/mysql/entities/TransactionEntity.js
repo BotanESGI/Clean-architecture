@@ -20,7 +20,7 @@ __decorate([
     __metadata("design:type", String)
 ], TransactionEntity.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ name: "accountId" }),
     __metadata("design:type", String)
 ], TransactionEntity.prototype, "accountId", void 0);
 __decorate([
@@ -41,15 +41,15 @@ __decorate([
     __metadata("design:type", String)
 ], TransactionEntity.prototype, "label", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ name: "relatedAccountId", nullable: true }),
     __metadata("design:type", String)
 ], TransactionEntity.prototype, "relatedAccountId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ name: "relatedClientName", nullable: true }),
     __metadata("design:type", String)
 ], TransactionEntity.prototype, "relatedClientName", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.CreateDateColumn)({ name: "createdAt" }),
     __metadata("design:type", Date)
 ], TransactionEntity.prototype, "createdAt", void 0);
 exports.TransactionEntity = TransactionEntity = __decorate([

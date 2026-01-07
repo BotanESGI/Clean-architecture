@@ -24,6 +24,13 @@ class MySQLClientRepository {
         const entity = await this.repo.findOne({ where: { email } });
         return entity ? this.toDomain(entity) : null;
     }
+    async findAll() {
+        const entities = await this.repo.find();
+        return entities.map(e => this.toDomain(e));
+    }
+    async delete(id) {
+        await this.repo.delete(id);
+    }
     toEntity(client) {
         const entity = new ClientEntity_1.ClientEntity();
         entity.id = client.getId();
@@ -32,11 +39,13 @@ class MySQLClientRepository {
         entity.email = client.getEmail();
         entity.passwordHashed = client.getPasswordHash();
         entity.isVerified = client.getIsVerified();
-        entity.accountIds = client.getAccountIds().length > 0 ? client.getAccountIds() : undefined;
+        entity.role = client.getRole();
+        entity.isBanned = client.getIsBanned();
         return entity;
     }
     toDomain(entity) {
-        const client = new Client_1.Client(entity.id, entity.firstName, entity.lastName, entity.email, entity.passwordHashed, entity.isVerified, entity.accountIds || []);
+        const client = new Client_1.Client(entity.id, entity.firstName, entity.lastName, entity.email, entity.passwordHashed, entity.isVerified, [], // accountIds n'est plus stocké en base, on peut le récupérer via la relation avec accounts
+        entity.role || 'CLIENT', entity.isBanned || false);
         return client;
     }
 }

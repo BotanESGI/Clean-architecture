@@ -34,7 +34,7 @@ class RegisterClient {
             throw new Error("Mot de passe invalide. Exigences: 8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial.");
         }
         const passwordHash = await bcryptjs_1.default.hash(password, 10);
-        const client = new Client_1.Client(crypto_1.default.randomUUID(), firstName, lastName, email, passwordHash, false);
+        const client = new Client_1.Client(crypto_1.default.randomUUID(), firstName, lastName, email, passwordHash, false, [], 'CLIENT', false);
         await this.clientRepository.save(client);
         const secret = process.env.JWT_SECRET;
         if (!secret)
