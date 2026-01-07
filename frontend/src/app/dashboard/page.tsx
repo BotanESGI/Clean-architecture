@@ -509,6 +509,7 @@ export default function DashboardPage() {
                           holder={clientName} 
                           last4={isActive ? displayedAccount.iban.slice(-4) : "****"}
                           accountType={displayedAccount.accountType || "checking"}
+                          accountName={displayedAccount.name}
                         />
                       </button>
                     </div>
@@ -925,7 +926,7 @@ function decodeClientId(token: string | null): string | null {
   }
 }
 
-function BankCard({ balance, holder, last4, accountType }: { balance: number; holder: string; last4: string; accountType?: string }) {
+function BankCard({ balance, holder, last4, accountType, accountName }: { balance: number; holder: string; last4: string; accountType?: string; accountName?: string }) {
   const { t } = useTranslation();
   const isSavings = accountType === "savings";
   return (
@@ -933,7 +934,7 @@ function BankCard({ balance, holder, last4, accountType }: { balance: number; ho
       <div className={`absolute -right-10 -top-10 h-32 w-32 rounded-full ${isSavings ? "bg-green-500/20" : "bg-primary/20"} blur-3xl`} />
       <div className="relative">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted">{isSavings ? `💰 ${t("dashboard.savings")}` : t("dashboard.visaCard")}</span>
+          <span className="text-sm text-muted">{isSavings ? `💰 ${t("dashboard.savings")}` : (accountName || t("dashboard.accountName"))}</span>
           <span className={`pill ${isSavings ? "bg-green-500/20 text-green-400 border-green-500/30" : ""}`}>
             {isSavings ? t("dashboard.remunerated") : t("dashboard.active")}
           </span>
