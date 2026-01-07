@@ -1,10 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
 import { RegisterForm } from "../../components/organisms/RegisterForm";
 import { useTranslation } from "../../hooks/useTranslation";
 
 export default function RegisterPage() {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   return (
     <div className="grid lg:grid-cols-2 gap-10 items-center">
