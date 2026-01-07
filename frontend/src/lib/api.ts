@@ -66,6 +66,9 @@ export const api = {
   deleteAccount: (accountId: string) =>
     request<{ success: boolean }>(`/accounts/${accountId}`, "DELETE"),
 
+  renameAccount: (accountId: string, name: string) =>
+    request<{ id: string; name: string }>(`/accounts/${accountId}`, "PATCH", { name }),
+
   listTransactions: (accountIds: string[]) =>
     request<Array<{ id: string; accountId: string; type: string; amount: number; label: string; relatedAccountId?: string; relatedClientName?: string; createdAt: string }>>(`/transactions?accountIds=${accountIds.join(",")}`, "GET"),
 

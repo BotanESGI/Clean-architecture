@@ -666,55 +666,27 @@ export default function DashboardPage() {
       const currentAccount = displayedAccount;
       
       return (
-        <Modal onClose={() => setShowAccountModal(false)}>
-          {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
-          <h3 className="font-semibold mb-4">{t("dashboard.accountInfoTitle")}</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.holder")}</span><span className="font-medium">{clientName}</span></div>
-            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.name")}</span><span className="font-medium">{currentAccount.name ?? t("dashboard.checking")}</span></div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted">{t("dashboard.type")}</span>
-              <span className="font-medium">
-                {currentAccount.accountType === "savings" ? t("dashboard.savings") : t("dashboard.checking")}
-              </span>
-            </div>
-            {currentAccount.accountType === "savings" && savingsRate !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted">{t("dashboard.savingsRateLabel")}</span>
-                <span className="font-medium text-green-400">
-                  {savingsRate.toFixed(2)}% {t("dashboard.perYear")}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-muted">IBAN</span>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{currentAccount.iban}</span>
-                <button type="button" className="icon-btn" aria-label={t("dashboard.copyIban")} onClick={async () => {
-                  try {
-                    await navigator.clipboard?.writeText(currentAccount.iban);
-                    setModalBanner(t("dashboard.ibanCopied"));
-                    setTimeout(() => setModalBanner(""), 1800);
-                    show(t("dashboard.ibanCopied"), "success");
-                  } catch {
-                    setModalBanner(t("dashboard.cannotCopyIban"));
-                    setTimeout(() => setModalBanner(""), 1800);
-                    show(t("dashboard.cannotCopyIban"), "error");
-                  }
-                }}>
-                  <CopyIcon />
-                </button>
-              </div>
-            </div>
-            {currentAccount.createdAt && (
-              <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.creationDate")}</span><span className="font-medium">{new Date(currentAccount.createdAt).toLocaleDateString("fr-FR")}</span></div>
-            )}
-            <div className="flex items-center justify-between"><span className="text-muted">{t("dashboard.balance")}</span><span className="font-medium">{formatCurrency(currentAccount.balance)}</span></div>
-          </div>
-          <div className="mt-6 text-right">
-            <button className="btn-primary" onClick={() => setShowAccountModal(false)}>Fermer</button>
-          </div>
-        </Modal>
+        <AccountInfoModal
+          account={currentAccount}
+          clientName={clientName}
+          savingsRate={savingsRate}
+          onClose={() => setShowAccountModal(false)}
+          onRename={async (newName) => {
+            try {
+              await api.renameAccount(currentAccount.id, newName);
+              const updated = accounts.map(a => a.id === currentAccount.id ? { ...a, name: newName } : a);
+              setAccounts(updated);
+              if (ibanInfo && ibanInfo.iban === currentAccount.iban) {
+                setIbanInfo({ ...ibanInfo, name: newName });
+              }
+              show(t("dashboard.accountRenamed"), "success");
+            } catch (err) {
+              show(t("dashboard.renameError"), "error");
+            }
+          }}
+          t={t}
+          show={show}
+        />
       );
     })()}
 
@@ -1465,5 +1437,154 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
         <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
       </div>
     </Modal>
+  );
+}
+
+function AccountInfoModal({ 
+  account, 
+  clientName, 
+  savingsRate, 
+  onClose, 
+  onRename, 
+  t, 
+  show 
+}: { 
+  account: { id: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string };
+  clientName: string;
+  savingsRate: number | null;
+  onClose: () => void;
+  onRename: (newName: string) => Promise<void>;
+  t: (key: string) => string;
+  show: (text: string, type: "success" | "error" | "info" | "warning") => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [newName, setNewName] = useState(account.name || "");
+  const [isLoading, setIsLoading] = useState(false);
+  const [modalBanner, setModalBanner] = useState("");
+
+  const handleSave = async () => {
+    if (!newName.trim()) return;
+    setIsLoading(true);
+    try {
+      await onRename(newName.trim());
+      setIsEditing(false);
+    } catch (err) {
+      // Error handled in parent
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      {modalBanner && <div className="alert alert-success mb-3 text-center">{modalBanner}</div>}
+      <h3 className="font-semibold mb-4">{t("dashboard.accountInfoTitle")}</h3>
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t("dashboard.holder")}</span>
+          <span className="font-medium">{clientName}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t("dashboard.name")}</span>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="input-dark text-sm py-1 px-2 w-32"
+                  autoFocus
+                />
+                <button
+                  className="icon-btn text-primary"
+                  onClick={handleSave}
+                  disabled={isLoading || !newName.trim()}
+                  aria-label={t("common.save")}
+                >
+                  ✓
+                </button>
+                <button
+                  className="icon-btn text-red-400"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setNewName(account.name || "");
+                  }}
+                  aria-label={t("common.cancel")}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="font-medium">{account.name ?? t("dashboard.checking")}</span>
+                <button
+                  className="icon-btn"
+                  onClick={() => setIsEditing(true)}
+                  aria-label={t("dashboard.editAccountName")}
+                >
+                  <PencilIcon />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t("dashboard.type")}</span>
+          <span className="font-medium">
+            {account.accountType === "savings" ? t("dashboard.savings") : t("dashboard.checking")}
+          </span>
+        </div>
+        {account.accountType === "savings" && savingsRate !== null && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted">{t("dashboard.savingsRateLabel")}</span>
+            <span className="font-medium text-green-400">
+              {savingsRate.toFixed(2)}% {t("dashboard.perYear")}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted">IBAN</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{account.iban}</span>
+            <button type="button" className="icon-btn" aria-label={t("dashboard.copyIban")} onClick={async () => {
+              try {
+                await navigator.clipboard?.writeText(account.iban);
+                setModalBanner(t("dashboard.ibanCopied"));
+                setTimeout(() => setModalBanner(""), 1800);
+                show(t("dashboard.ibanCopied"), "success");
+              } catch {
+                setModalBanner(t("dashboard.cannotCopyIban"));
+                setTimeout(() => setModalBanner(""), 1800);
+                show(t("dashboard.cannotCopyIban"), "error");
+              }
+            }}>
+              <CopyIcon />
+            </button>
+          </div>
+        </div>
+        {account.createdAt && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted">{t("dashboard.creationDate")}</span>
+            <span className="font-medium">{new Date(account.createdAt).toLocaleDateString("fr-FR")}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t("dashboard.balance")}</span>
+          <span className="font-medium">{formatCurrency(account.balance)}</span>
+        </div>
+      </div>
+      <div className="mt-6 text-right">
+        <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
   );
 }
