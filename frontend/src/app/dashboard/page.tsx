@@ -20,7 +20,7 @@ type ActivityHistoryItem = {
   id: string;
   date: string;
   label: string;
-  type: "create" | "delete" | "transfer_in" | "transfer_out";
+  type: "create" | "delete" | "transfer_in" | "transfer_out" | "rename_account" | "add_beneficiary" | "remove_beneficiary" | "buy_stock" | "sell_stock" | "contact_advisor";
 };
 
 type Beneficiary = {
@@ -59,6 +59,23 @@ export default function DashboardPage() {
   const [stocks, setStocks] = useState<Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean }>>([]);
   const [orders, setOrders] = useState<Array<{ id: string; stockId: string; type: string; quantity: number; price: number; fee: number; status: string; createdAt: string }>>([]);
   const [showInvestModal, setShowInvestModal] = useState(false);
+
+  // Helper function to add an activity to history
+  const addActivity = useCallback((accountId: string, activity: Omit<ActivityHistoryItem, "id">) => {
+    try {
+      const stored = localStorage.getItem(`activityHistory_${accountId}`);
+      const existingHistory: ActivityHistoryItem[] = stored ? JSON.parse(stored) : [];
+      const newActivity: ActivityHistoryItem = {
+        ...activity,
+        id: `${activity.type}_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      };
+      const newHistory = [newActivity, ...existingHistory];
+      setActivityHistory(newHistory);
+      localStorage.setItem(`activityHistory_${accountId}`, JSON.stringify(newHistory));
+    } catch (err) {
+      console.error("Error adding activity:", err);
+    }
+  }, []);
 
   // Load account data (transactions and activity history) for a specific account
   const loadAccountData = useCallback(async (accountId: string) => {
@@ -434,9 +451,33 @@ export default function DashboardPage() {
                         ? "bg-red-500/10 border-red-500/30 text-red-400"
                         : activity.type === "transfer_in"
                         ? "bg-green-500/10 border-green-500/30 text-green-400"
-                        : "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                        : activity.type === "transfer_out"
+                        ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                        : activity.type === "rename_account"
+                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                        : activity.type === "add_beneficiary"
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        : activity.type === "remove_beneficiary"
+                        ? "bg-red-500/10 border-red-500/30 text-red-400"
+                        : activity.type === "buy_stock"
+                        ? "bg-green-500/10 border-green-500/30 text-green-400"
+                        : activity.type === "sell_stock"
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                        : activity.type === "contact_advisor"
+                        ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                        : "bg-white/5 border-white/10"
                     }`}>
-                      {activity.type === "create" ? "+" : activity.type === "delete" ? "✕" : activity.type === "transfer_in" ? "↓" : "↑"}
+                      {activity.type === "create" ? "+" 
+                        : activity.type === "delete" ? "✕" 
+                        : activity.type === "transfer_in" ? "↓" 
+                        : activity.type === "transfer_out" ? "↑"
+                        : activity.type === "rename_account" ? "✏️"
+                        : activity.type === "add_beneficiary" ? "+"
+                        : activity.type === "remove_beneficiary" ? "✕"
+                        : activity.type === "buy_stock" ? "📈"
+                        : activity.type === "sell_stock" ? "📉"
+                        : activity.type === "contact_advisor" ? "💬"
+                        : "•"}
                     </div>
                     <div>
                       <p className="font-medium">{activity.label}</p>
@@ -673,12 +714,23 @@ export default function DashboardPage() {
           onClose={() => setShowAccountModal(false)}
           onRename={async (newName) => {
             try {
+              const oldName = currentAccount.name || t("dashboard.checking");
               await api.renameAccount(currentAccount.id, newName);
               const updated = accounts.map(a => a.id === currentAccount.id ? { ...a, name: newName } : a);
               setAccounts(updated);
               if (ibanInfo && ibanInfo.iban === currentAccount.iban) {
                 setIbanInfo({ ...ibanInfo, name: newName });
               }
+              
+              // Add activity
+              if (activeAccountId) {
+                addActivity(activeAccountId, {
+                  date: new Date().toISOString(),
+                  label: `${t("dashboard.accountRenamedActivity")}: "${oldName}" → "${newName}"`,
+                  type: "rename_account",
+                });
+              }
+              
               show(t("dashboard.accountRenamed"), "success");
             } catch (err) {
               show(t("dashboard.renameError"), "error");
@@ -696,8 +748,33 @@ export default function DashboardPage() {
         beneficiaries={beneficiaries}
         onClose={() => setShowBeneficiaryModal(false)}
         onUpdate={(updated) => {
+          const previousBeneficiaries = beneficiaries;
           setBeneficiaries(updated);
           localStorage.setItem(`beneficiaries_${activeAccountId}`, JSON.stringify(updated));
+          
+          // Detect added beneficiaries
+          if (updated.length > previousBeneficiaries.length) {
+            const added = updated.find(b => !previousBeneficiaries.some(pb => pb.id === b.id));
+            if (added && activeAccountId) {
+              addActivity(activeAccountId, {
+                date: new Date().toISOString(),
+                label: `${t("dashboard.beneficiaryAddedActivity")}: ${added.firstName} ${added.lastName}`,
+                type: "add_beneficiary",
+              });
+            }
+          }
+          
+          // Detect removed beneficiaries
+          if (updated.length < previousBeneficiaries.length) {
+            const removed = previousBeneficiaries.find(pb => !updated.some(b => b.id === pb.id));
+            if (removed && activeAccountId) {
+              addActivity(activeAccountId, {
+                date: new Date().toISOString(),
+                label: `${t("dashboard.beneficiaryRemovedActivity")}: ${removed.firstName} ${removed.lastName}`,
+                type: "remove_beneficiary",
+              });
+            }
+          }
         }}
       />
     )}
@@ -841,7 +918,7 @@ export default function DashboardPage() {
           setShowInvestModal(false);
           (window as any).selectedStockId = null;
         }}
-        onSuccess={async () => {
+        onSuccess={async (orderInfo) => {
           // Recharger les données
           try {
             const [stocksData, ordersData, clientId] = await Promise.all([
@@ -861,6 +938,19 @@ export default function DashboardPage() {
             }
             if (activeAccountId) {
               await loadAccountData(activeAccountId);
+            }
+            
+            // Add activity if order info is provided
+            if (orderInfo && activeAccountId) {
+              const stock = stocksData.stocks.find(s => s.id === orderInfo.stockId);
+              if (stock) {
+                const activityType = orderInfo.orderType === "BUY" ? "buy_stock" : "sell_stock";
+                addActivity(activeAccountId, {
+                  date: new Date().toISOString(),
+                  label: `${orderInfo.orderType === "BUY" ? t("dashboard.stockBuyActivity") : t("dashboard.stockSellActivity")}: ${stock.symbol} (${orderInfo.quantity} × ${formatCurrency(stock.currentPrice)})`,
+                  type: activityType,
+                });
+              }
             }
           } catch (err) {
             console.error("Error reloading data:", err);
@@ -1073,7 +1163,7 @@ function InvestmentModal({ stocks, accounts, token, onClose, onSuccess }: {
   accounts: Array<{ id: string; name: string; balance: number }>; 
   token: string | null;
   onClose: () => void;
-  onSuccess: () => Promise<void>;
+  onSuccess: (orderInfo?: { stockId: string; orderType: "BUY" | "SELL"; quantity: number }) => Promise<void>;
 }) {
   const [selectedStockId, setSelectedStockId] = useState<string>("");
   const [orderType, setOrderType] = useState<"BUY" | "SELL">("BUY");
@@ -1127,8 +1217,15 @@ function InvestmentModal({ stocks, accounts, token, onClose, onSuccess }: {
         quantity: qty,
         accountId
       }, token);
+      
       show(orderType === "BUY" ? "Ordre d'achat exécuté" : "Ordre de vente exécuté", "success");
-      await onSuccess();
+      
+      // Pass order info to onSuccess callback
+      await onSuccess({
+        stockId: selectedStockId,
+        orderType,
+        quantity: qty,
+      });
     } catch (err: any) {
       show(err.message || "Erreur lors de l'ordre", "error");
     } finally {
