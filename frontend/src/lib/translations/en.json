@@ -90,6 +90,7 @@
     "realTimeBalance": "Balance updated in real time",
     "mainBalance": "Main balance",
     "accountSelected": "Account selected",
+    "accountSwitched": "You are now viewing the account",
     "accountDeleted": "Account deleted",
     "deleteAccountConfirm": "Delete this account?",
     "accountInfo": "Account info",

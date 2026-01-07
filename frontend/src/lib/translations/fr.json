@@ -90,6 +90,7 @@
     "realTimeBalance": "Solde mis à jour en temps réel",
     "mainBalance": "Solde principal",
     "accountSelected": "Compte sélectionné",
+    "accountSwitched": "Vous consultez maintenant le compte",
     "accountDeleted": "Compte supprimé",
     "deleteAccountConfirm": "Supprimer ce compte ?",
     "accountInfo": "Infos compte",

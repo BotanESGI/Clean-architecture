@@ -33,22 +33,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex flex-col gap-3">
+      <div className="pointer-events-none fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] flex flex-col gap-3 items-center">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={
-              "pointer-events-auto card min-w-[260px] px-4 py-3 shadow-glow border " +
-              (t.type === "success"
-                ? "border-primary/40"
-                : t.type === "error"
-                ? "border-red-500/40"
-                : t.type === "warning"
-                ? "border-yellow-500/40"
-                : "border-white/10")
+              "pointer-events-auto min-w-[320px] max-w-[420px] px-4 py-4 rounded-lg shadow-2xl flex items-start gap-4 bg-[#1a1a1a] border border-primary/40 text-primary"
             }
           >
-            <p className="text-sm">{t.text}</p>
+            <div className={
+              "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-primary/90 text-black shadow-glow"
+            }>
+              {t.type === "success" ? "✓" : t.type === "error" ? "✕" : t.type === "warning" ? "⚠" : "ℹ"}
+            </div>
+            <div className="flex-1 pt-0.5">
+              <p className="text-primary font-semibold text-base mb-1 leading-tight">{t.text}</p>
+            </div>
           </div>
         ))}
       </div>

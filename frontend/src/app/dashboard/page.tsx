@@ -130,7 +130,7 @@ export default function DashboardPage() {
     await loadAccountData(accountId);
     
     const accountName = account.name || t("dashboard.accountName");
-    show(`${t("dashboard.accountSelected")}: ${accountName}`, "success");
+    show(`${t("dashboard.accountSwitched")} "${accountName}"`, "success");
   }, [accounts, loadAccountData, show]);
 
   // Marquer le composant comme monté côté client
@@ -455,14 +455,10 @@ export default function DashboardPage() {
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex <= 0 ? "opacity-40 pointer-events-none" : "")}
               aria-label={t("common.previous")}
-              onClick={async () => {
+              onClick={() => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.max(0, displayedCardIndex - 1);
-                const account = accounts[newIdx];
-                if (account) {
-                  setDisplayedCardIndex(newIdx);
-                  await switchAccount(account.id);
-                }
+                setDisplayedCardIndex(newIdx);
               }}
             >
               ◀
@@ -520,14 +516,10 @@ export default function DashboardPage() {
             <button
               className={"icon-btn h-8 w-8 " + (accounts.length === 0 || displayedCardIndex >= accounts.length - 1 ? "opacity-40 pointer-events-none" : "")}
               aria-label={t("common.next")}
-              onClick={async () => {
+              onClick={() => {
                 if (accounts.length === 0) return;
                 const newIdx = Math.min(accounts.length - 1, displayedCardIndex + 1);
-                const account = accounts[newIdx];
-                if (account) {
-                  setDisplayedCardIndex(newIdx);
-                  await switchAccount(account.id);
-                }
+                setDisplayedCardIndex(newIdx);
               }}
             >
               ▶
