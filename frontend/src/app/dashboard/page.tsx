@@ -1310,10 +1310,12 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
 
   return (
     <Modal onClose={onClose}>
-      <h3 className="font-semibold mb-4">{t("dashboard.manageBeneficiaries")}</h3>
-      
-      {/* Add beneficiary form */}
-      <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
+      <div className="flex flex-col h-[80vh] max-h-[600px]">
+        <h3 className="font-semibold mb-4 flex-shrink-0">{t("dashboard.manageBeneficiaries")}</h3>
+        
+        <div className="flex-1 overflow-y-auto pr-2">
+        {/* Add beneficiary form */}
+        <div className="space-y-4 mb-6 pb-6 border-b border-white/10">
         <h4 className="text-sm font-medium">{t("dashboard.addBeneficiaryTitle")}</h4>
         <div>
           <label className="block text-sm font-medium mb-2">{t("dashboard.iban")}</label>
@@ -1406,35 +1408,37 @@ function BeneficiaryModal({ beneficiaries, onClose, onUpdate }: { beneficiaries:
         </div>
       )}
 
-      {/* List of beneficiaries */}
-      <div>
-        <h4 className="text-sm font-medium mb-3">{t("dashboard.registeredBeneficiaries")}</h4>
-        {beneficiaries.length === 0 ? (
-          <p className="text-muted text-sm py-4">{t("dashboard.noBeneficiaries")}</p>
-        ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {beneficiaries.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10">
-                <div>
-                  <p className="font-medium">{b.firstName} {b.lastName}</p>
-                  <p className="text-xs text-muted">{b.iban}</p>
-                  {!b.isInBank && <span className="text-xs text-yellow-400">({t("dashboard.external")})</span>}
+        {/* List of beneficiaries */}
+        <div>
+          <h4 className="text-sm font-medium mb-3">{t("dashboard.registeredBeneficiaries")}</h4>
+          {beneficiaries.length === 0 ? (
+            <p className="text-muted text-sm py-4">{t("dashboard.noBeneficiaries")}</p>
+          ) : (
+            <div className="space-y-2">
+              {beneficiaries.map(b => (
+                <div key={b.id} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10">
+                  <div>
+                    <p className="font-medium">{b.firstName} {b.lastName}</p>
+                    <p className="text-xs text-muted">{b.iban}</p>
+                    {!b.isInBank && <span className="text-xs text-yellow-400">({t("dashboard.external")})</span>}
+                  </div>
+                  <button
+                    className="icon-btn text-red-400"
+                    onClick={() => handleDelete(b.id)}
+                    aria-label={t("common.delete")}
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  className="icon-btn text-red-400"
-                  onClick={() => handleDelete(b.id)}
-                  aria-label={t("common.delete")}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+        </div>
 
-      <div className="mt-6 text-right">
-        <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
+        <div className="mt-6 text-right flex-shrink-0 border-t border-white/10 pt-4">
+          <button className="btn-primary" onClick={onClose}>{t("common.close")}</button>
+        </div>
       </div>
     </Modal>
   );
