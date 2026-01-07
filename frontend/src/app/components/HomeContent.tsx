@@ -78,9 +78,14 @@ export default function HomeContent({ savingsRate }: HomeContentProps) {
               </div>
             </div>
           </div>
-          <div className="relative h-96 lg:h-[500px]">
-            {/* Placeholder pour illustration */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl" />
+          <div className="relative h-96 lg:h-[500px] flex items-center justify-center">
+            {/* Prototype de téléphone */}
+            <div className="relative w-64 h-[500px] phone-card border-2 border-white/20 shadow-[0_0_40px_rgba(184,255,61,0.15)]">
+              <div className="phone-notch" />
+              <div className="w-full h-full rounded-[28px] bg-gradient-to-b from-white/5 to-transparent flex items-center justify-center">
+                <span className="text-8xl">💰</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
