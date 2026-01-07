@@ -1,8 +1,6 @@
 import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 
-// Route sous /api/v2 pour différencier de Express qui utilise /advisor/notifications
-// Note: Le préfixe 'api/v2' est défini globalement dans main.ts, donc on utilise juste 'notifications' ici
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
@@ -10,7 +8,7 @@ export class NotificationController {
   @Get()
   @HttpCode(HttpStatus.OK)
   test() {
-    return { message: '✅ NestJS fonctionne ! Route accessible via /api/v2/notifications' };
+      return { message: 'NestJS fonctionne ! Route accessible via /api/v2/notifications' };
   }
 
   @Post()

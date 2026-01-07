@@ -57,6 +57,7 @@ import { requireAdvisor } from "../middlewares/requireAdvisor";
 import { seedDirector } from "../../infrastructure/seeds/createDirector";
 import { seedAdvisor } from "../../infrastructure/seeds/createAdvisor";
 import { MySQLPrivateMessageRepository } from "../../infrastructure/adapters/mysql/MySQLPrivateMessageRepository";
+import { MySQLConversationRepository } from "../../infrastructure/adapters/mysql/MySQLConversationRepository";
 import { SendPrivateMessage } from "../../application/use-cases/SendPrivateMessage";
 import { ListPrivateMessages } from "../../application/use-cases/ListPrivateMessages";
 import { GetAvailableAdvisor } from "../../application/use-cases/GetAvailableAdvisor";
@@ -69,13 +70,13 @@ import jwt from "jsonwebtoken";
 async function initializeDatabase() {
   try {
     await AppDataSource.initialize();
-    console.log("✅ Base de données MySQL connectée");
+    console.log("Base de données MySQL connectée");
     console.log(`📊 Base de données: ${process.env.DB_NAME || "banque_avenir"}`);
     
     await seedDirector(AppDataSource);
     await seedAdvisor(AppDataSource);
   } catch (error) {
-    console.error("❌ Erreur lors de la connexion à la base de données:", error);
+    console.error("Erreur lors de la connexion à la base de données:", error);
     process.exit(1);
   }
 }
@@ -93,6 +94,7 @@ async function startServer() {
   const stockRepository = new MySQLStockRepository(AppDataSource);
   const creditRepository = new MySQLCreditRepository(AppDataSource);
   const privateMessageRepository = new MySQLPrivateMessageRepository(AppDataSource);
+  const conversationRepository = new MySQLConversationRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -133,11 +135,15 @@ async function startServer() {
   );
 
   // --- Use cases (Private Messages) ---
-  const sendPrivateMessage = new SendPrivateMessage(privateMessageRepository, clientRepository);
+  const sendPrivateMessage = new SendPrivateMessage(privateMessageRepository, clientRepository, conversationRepository);
   const listPrivateMessages = new ListPrivateMessages(privateMessageRepository, clientRepository);
   const getAvailableAdvisor = new GetAvailableAdvisor(clientRepository);
   const { ListAdvisorConversations } = await import("../../application/use-cases/ListAdvisorConversations");
-  const listAdvisorConversations = new ListAdvisorConversations(privateMessageRepository, clientRepository);
+  const listAdvisorConversations = new ListAdvisorConversations(privateMessageRepository, clientRepository, conversationRepository);
+  const { TransferConversation } = await import("../../application/use-cases/TransferConversation");
+  const transferConversation = new TransferConversation(conversationRepository, clientRepository);
+  const { GetOrCreateConversation } = await import("../../application/use-cases/GetOrCreateConversation");
+  const getOrCreateConversation = new GetOrCreateConversation(conversationRepository, clientRepository);
 
   // --- Use cases (Director) ---
   const listAllClients = new ListAllClients(clientRepository);
@@ -211,30 +217,23 @@ async function startServer() {
     listAllStocks
   );
 
-  // --- Controller (Private Messages) ---
-  const privateMessageController = new PrivateMessageController(
-    listPrivateMessages,
-    sendPrivateMessage,
-    privateMessageRepository
-  );
-
   // --- Job d'intérêts quotidiens ---
   const dailyInterestJob = new DailyInterestJob(calculateDailyInterest);
   
   // Calculer les intérêts manquants au démarrage (si le serveur a été redémarré)
   try {
-    console.log("🔄 Calcul des intérêts manquants au démarrage...");
+    console.log("Calcul des intérêts manquants au démarrage...");
     const result = await calculateMissingInterest.execute();
     if (result.accountsProcessed > 0) {
       console.log(
-        `✅ Intérêts manquants calculés: ${result.accountsProcessed} comptes traités, ` +
+        `Intérêts manquants calculés: ${result.accountsProcessed} comptes traités, ` +
         `${result.totalInterest.toFixed(2)}€ d'intérêts distribués`
       );
     } else {
-      console.log("✅ Aucun intérêt manquant à calculer");
+      console.log("Aucun intérêt manquant à calculer");
     }
   } catch (error) {
-    console.error("⚠️ Erreur lors du calcul des intérêts manquants:", error);
+    console.error("Erreur lors du calcul des intérêts manquants:", error);
   }
   
   // Démarrer le job (exécute tous les jours à minuit)
@@ -253,6 +252,15 @@ async function startServer() {
     sendPrivateMessage,
     listPrivateMessages,
     clientRepository
+  );
+
+  // --- Controller (Private Messages) ---
+  const privateMessageController = new PrivateMessageController(
+    listPrivateMessages,
+    sendPrivateMessage,
+    privateMessageRepository,
+    transferConversation,
+    privateMessageSocket
   );
 
   // --- Use case SendNotification (doit être créé après le WebSocket) ---
@@ -298,9 +306,8 @@ async function startServer() {
     next();
   });
 
-  // Middleware de logging pour debug
   app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.path}`);
+    console.log(`${req.method} ${req.path}`);
     next();
   });
 
@@ -347,8 +354,44 @@ async function startServer() {
       res.status(404).json({ message: err.message });
     }
   });
+
+  // GET /clients/:clientId/conversation/advisor - Retourne le conseiller assigné à la conversation du client
+  app.get("/clients/:clientId/conversation/advisor", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      
+      // Récupérer la conversation du client
+      const conversation = await conversationRepository.findByClientId(clientId);
+      
+      if (conversation && conversation.assignedAdvisorId) {
+        // Si une conversation existe avec un conseiller assigné, retourner ce conseiller
+        const advisor = await clientRepository.findById(conversation.assignedAdvisorId);
+        if (advisor) {
+          return res.status(200).json({
+            id: advisor.getId(),
+            firstName: advisor.getFirstName(),
+            lastName: advisor.getLastName(),
+            email: advisor.getEmail(),
+          });
+        }
+      }
+      
+      // Sinon, retourner un conseiller disponible (fallback)
+      const advisor = await getAvailableAdvisor.execute();
+      res.status(200).json({
+        id: advisor.getId(),
+        firstName: advisor.getFirstName(),
+        lastName: advisor.getLastName(),
+        email: advisor.getEmail(),
+      });
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
   app.get("/private-messages/:advisorId", privateMessageController.list);
   app.post("/private-messages", privateMessageController.send);
+  app.post("/private-messages/transfer", requireAdvisor, privateMessageController.transfer);
   app.get("/private-messages/unread/count", privateMessageController.getUnreadCount);
 
   // --- Routes Advisor ---
@@ -356,16 +399,14 @@ async function startServer() {
     try {
       // Le middleware requireAdvisor met déjà le user dans req.user
       const userId = (req as any).user?.clientId;
-      console.log("📨 Requête /advisor/conversations pour userId:", userId);
       if (!userId) {
-        console.error("❌ Utilisateur non authentifié");
+        console.error("Utilisateur non authentifié");
         return res.status(401).json({ message: "Utilisateur non authentifié" });
       }
       const conversations = await listAdvisorConversations.execute(userId);
-      console.log("✅ Conversations récupérées:", conversations.length);
       res.status(200).json({ conversations });
     } catch (err: any) {
-      console.error("❌ Erreur dans /advisor/conversations:", err);
+      console.error("Erreur dans /advisor/conversations:", err);
       res.status(400).json({ message: err.message || "Erreur lors de la récupération des conversations" });
     }
   });
@@ -389,6 +430,24 @@ async function startServer() {
 
   // --- Routes Advisor (Credits) ---
   app.get("/advisor/clients", requireAdvisor, creditController.listClients);
+  
+  // GET /advisor/advisors - Liste tous les conseillers pour le transfert
+  app.get("/advisor/advisors", requireAdvisor, async (req, res) => {
+    try {
+      const allClients = await clientRepository.findAll();
+      const advisors = allClients
+        .filter(client => client.getRole() === "ADVISOR")
+        .map(client => ({
+          id: client.getId(),
+          firstName: client.getFirstName(),
+          lastName: client.getLastName(),
+          email: client.getEmail()
+        }));
+      res.status(200).json({ advisors });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erreur lors de la récupération des conseillers" });
+    }
+  });
   app.post("/advisor/credits/preview", requireAdvisor, creditController.calculatePreview);
   app.post("/advisor/credits", requireAdvisor, creditController.create);
   app.get("/advisor/credits", requireAdvisor, creditController.list);
@@ -424,18 +483,15 @@ async function startServer() {
   });
 
   // --- Intégration NestJS (2ème framework backend pour respecter la contrainte) ---
-  // IMPORTANT: NestJS doit être initialisé APRÈS toutes les routes Express pour éviter les conflits
-  // On a choisi NestJS pour le module notifications car il offre une bonne gestion des dépendances
   const { NotificationModule } = await import("../nestjs/notification/notification.module");
   
   // Créer l'app NestJS en utilisant l'adaptateur Express pour partager le même serveur
   const nestApp = await NestFactory.create(
     NotificationModule.forRoot(clientRepository, sendNotificationCallback),
     new ExpressAdapter(app),
-    { logger: false } // Pas besoin de logger NestJS, on utilise déjà celui d'Express
+    { logger: false }
   );
 
-  // Activer CORS dans NestJS (nécessaire même si Express l'a déjà)
   nestApp.enableCors({
     origin: (origin, callback) => {
       const FRONT_ORIGINS = (process.env.FRONT_ORIGIN || "http://localhost:3000,http://localhost:3001")
@@ -447,24 +503,21 @@ async function startServer() {
     },
   });
 
-  // Préfixe pour éviter les conflits avec les routes Express
   nestApp.setGlobalPrefix('api/v2');
-  
-  // Initialiser NestJS sans démarrer un serveur séparé (on utilise celui d'Express)
   await nestApp.init();
   
-  console.log('✅ NestJS intégré - Routes disponibles sous /api/v2/notifications');
+  console.log('NestJS intégré - Routes disponibles sous /api/v2/notifications');
 
   // --- Port configurable (évite conflit avec Next.js) ---
   const PORT = Number(process.env.PORT ?? 4000);
   httpServer.listen(PORT, () => {
-    console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
-    console.log(`🔌 WebSocket disponible sur ws://localhost:${PORT}`);
+    console.log(`Serveur lancé sur http://localhost:${PORT}`);
+    console.log(`WebSocket disponible sur ws://localhost:${PORT}`);
   });
 }
 
 // Démarrer le serveur
 startServer().catch((error) => {
-  console.error("❌ Erreur fatale:", error);
+  console.error("Erreur fatale:", error);
   process.exit(1);
 });

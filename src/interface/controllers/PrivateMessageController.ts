@@ -2,13 +2,16 @@ import { Request, Response } from "express";
 import { ListPrivateMessages } from "../../application/use-cases/ListPrivateMessages";
 import { SendPrivateMessage } from "../../application/use-cases/SendPrivateMessage";
 import { PrivateMessageRepository } from "../../application/repositories/PrivateMessageRepository";
+import { TransferConversation } from "../../application/use-cases/TransferConversation";
 import jwt from "jsonwebtoken";
 
 export class PrivateMessageController {
   constructor(
     private listMessages: ListPrivateMessages,
     private sendMessage: SendPrivateMessage,
-    private messageRepo: PrivateMessageRepository
+    private messageRepo: PrivateMessageRepository,
+    private transferConversation: TransferConversation,
+    private privateMessageSocket?: any
   ) {}
 
   // GET /private-messages/:advisorId - Liste les messages d'une conversation
@@ -68,6 +71,46 @@ export class PrivateMessageController {
       res.status(200).json({ count });
     } catch (err: any) {
       res.status(400).json({ message: err.message || "Erreur" });
+    }
+  };
+
+  // POST /private-messages/transfer - Transfère une conversation d'un conseiller à un autre
+  transfer = async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      if (!token) {
+        return res.status(401).json({ message: "Token manquant" });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { clientId: string };
+      const fromAdvisorId = decoded.clientId;
+      const { clientId, toAdvisorId } = req.body;
+
+      if (!clientId || !toAdvisorId) {
+        return res.status(400).json({ message: "clientId et toAdvisorId requis" });
+      }
+
+      if (fromAdvisorId === toAdvisorId) {
+        return res.status(400).json({ message: "Impossible de transférer une conversation à soi-même" });
+      }
+
+      await this.transferConversation.execute(clientId, fromAdvisorId, toAdvisorId);
+      
+      if (this.privateMessageSocket) {
+        this.privateMessageSocket.sendMessageToUser(clientId, "conversation_transferred", {
+          newAdvisorId: toAdvisorId,
+        });
+        this.privateMessageSocket.sendMessageToUser(toAdvisorId, "conversation_assigned", {
+          clientId: clientId,
+        });
+        this.privateMessageSocket.sendMessageToUser(fromAdvisorId, "conversation_unassigned", {
+          clientId: clientId,
+        });
+      }
+
+      res.status(200).json({ message: "Conversation transférée avec succès" });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Erreur lors du transfert de la conversation" });
     }
   };
 }

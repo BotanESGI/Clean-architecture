@@ -6,6 +6,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { AdvisorChat } from "../../../components/organisms/AdvisorChat/AdvisorChat";
 import { decodeClientId } from "../../../lib/utils";
 import api from "../../../lib/api";
+import { io } from "socket.io-client";
 
 interface Conversation {
   clientId: string;
@@ -14,6 +15,8 @@ interface Conversation {
   lastMessage: string;
   lastMessageDate: string;
   unreadCount: number;
+  isPending?: boolean;
+  assignedAdvisorId?: string | null;
 }
 
 export default function AdvisorMessagesPage() {
@@ -38,6 +41,51 @@ export default function AdvisorMessagesPage() {
 
     setAdvisorId(id);
     loadConversations(id);
+
+    const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const socket = io(BASE_URL, {
+      auth: { token },
+      path: "/socket.io",
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("connect", () => {
+      console.log("WebSocket connecté pour les notifications advisor");
+    });
+
+    socket.on("conversation_assigned", (data: { clientId: string }) => {
+      console.log("Conversation assignée:", data);
+      loadConversations(id);
+    });
+
+    socket.on("conversation_unassigned", (data: { clientId: string }) => {
+      console.log("Conversation désassignée:", data);
+      loadConversations(id);
+      setSelectedClientId((current) => {
+        if (current === data.clientId) {
+          return null;
+        }
+        return current;
+      });
+    });
+
+    const handleConversationAssigned = () => {
+      loadConversations(id);
+    };
+
+    const handleConversationUnassigned = () => {
+      loadConversations(id);
+      setSelectedClientId(null);
+    };
+
+    window.addEventListener("conversation_assigned", handleConversationAssigned);
+    window.addEventListener("conversation_unassigned", handleConversationUnassigned);
+
+    return () => {
+      socket.disconnect();
+      window.removeEventListener("conversation_assigned", handleConversationAssigned);
+      window.removeEventListener("conversation_unassigned", handleConversationUnassigned);
+    };
   }, [token, router]);
 
   const loadConversations = async (id: string) => {
@@ -138,6 +186,11 @@ export default function AdvisorMessagesPage() {
               advisorId={advisorId}
               clientId={selectedConversation.clientId}
               clientName={selectedConversation.clientName}
+              isAssignedToMe={selectedConversation.assignedAdvisorId === advisorId || selectedConversation.isPending}
+              onTransferComplete={() => {
+                loadConversations(advisorId);
+                setSelectedClientId(null);
+              }}
             />
           ) : (
             <div className="glass border border-white/10 rounded-2xl p-8 flex items-center justify-center h-[600px]">

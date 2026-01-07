@@ -23,12 +23,24 @@ export class ClientController {
   };
 
   confirm = async (req: Request, res: Response) => {
-    const { token } = req.params;
-    const account = await this.confirmClient.execute(token);
-    res.status(200).json({
-      message: "Compte confirmé avec succès",
-      account
-    });
+    try {
+      const { token } = req.params;
+      const account = await this.confirmClient.execute(token);
+      res.status(200).json({
+        message: "Compte confirmé avec succès",
+        account
+      });
+    } catch (err: any) {
+      const message = err?.message || "Erreur lors de la confirmation";
+      if (message.includes("déjà confirmé")) {
+        res.status(200).json({
+          message: "Compte déjà confirmé",
+          account: null
+        });
+      } else {
+        res.status(400).json({ message });
+      }
+    }
   };
 
   login = async (req: Request, res: Response) => {

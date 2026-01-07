@@ -95,7 +95,7 @@ export class RealEmailService implements EmailService {
       </div>
     `;
 
-    console.log(`\n📧 Notification de changement de taux d'épargne envoyée à ${to} (${rate}%)`);
+    console.log(`\nNotification de changement de taux d'épargne envoyée à ${to} (${rate}%)`);
 
     if (!this.transporter) {
       console.warn("[EmailService] SMTP non configuré - email non envoyé");

@@ -187,11 +187,16 @@ docker-compose up --build
 - Adminer sera accessible sur `http://localhost:8080`
 
 ### Configuration pour Adminer
-- Système	: MySQL / MariaDB
-- Serveur	mysql
-- Utilisateur	app_user
-- Mot de passe	app_password
-- Base de données	clean_architecture_db
+
+
+Les comptes suivants sont automatiquement créés au démarrage du serveur :
+
+| Rôle | Email | Mot de passe | Description |
+|------|-------|--------------|-------------|
+| **DIRECTOR** | `director@banque.com` | `Admin123!` | Directeur de banque
+| **ADVISOR** | `advisor@banque.com` | `Advisor123!` | Conseiller bancaire
+| **ADVISOR** | `advisor2@banque.com` | `Advisor2123!` | Conseiller bancaire
+
 
 ## 📋 Fonctionnalités
 
@@ -212,7 +217,7 @@ docker-compose up --build
 - Authentification : en tant que conseiller bancaire, je peux m’authentifier. ✅
 - Crédit : en tant que conseiller bancaire, je peux être amené à octroyer des crédit. Un crédit a un taux annuel d’intérêts à rembourser sur le capital
 restant chaque mois, une assurance (obligatoire) à un taux dont le montant est calculé sur le total du crédit accordé et prélevé sur les mensualités, et des mensualités qui correspondent au montant du crédit remboursé chaque mois. Nous utilisons la méthode de calcul du crédit à mensualité constante.✅
-- Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu’un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d’un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers.
+- Messagerie instantannée : en tant que conseiller bancaire, je peux répondre aux messages qui me sont envoyés de la part de mes clients, étant donné que nous sommes une banque moderne, chaque fois qu'un message est envoyé et en attente de réponse, tous les conseiller peuvent le voir, néanmoins à partir du premier message, la discussion est relié au conseiller bancaire qui a répondu en premier au client. En cas de besoin, la discussion peut être transférée d'un conseiller à un autre, auquel cas le transfert de la discussion se fait entre les deux conseillers. ✅
 
 ## 📚 Structure du projet
 

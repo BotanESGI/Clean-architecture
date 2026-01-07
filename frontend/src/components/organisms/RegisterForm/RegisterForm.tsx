@@ -38,23 +38,24 @@ export function RegisterForm() {
   };
   const passwordValid = Object.values(requirements).every(Boolean);
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = (data: RegisterFormData) => {
     setMessage("");
     setIsSuccess(false);
     
-    try {
-      const res = await api.register(data);
-      const msg = res.message + " " + t("auth.checkEmailConfirm");
-      setMessage(msg);
-      setIsSuccess(true);
-      show(t("auth.registerSuccess"), "success");
-      router.push(`/register/sent?email=${encodeURIComponent(data.email)}`);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t("auth.registerError");
-      setMessage(msg);
-      setIsSuccess(false);
-      show(msg, "error");
-    }
+    api.register(data)
+      .then((res) => {
+        const msg = res.message + " " + t("auth.checkEmailConfirm");
+        setMessage(msg);
+        setIsSuccess(true);
+        show(t("auth.registerSuccess"), "success");
+        router.push(`/register/sent?email=${encodeURIComponent(data.email)}`);
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : t("auth.registerError");
+        setMessage(msg);
+        setIsSuccess(false);
+        show(msg, "error");
+      });
   };
 
   return (

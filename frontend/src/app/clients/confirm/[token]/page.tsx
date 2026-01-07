@@ -1,9 +1,20 @@
-import React from "react";
-import { redirect } from "next/navigation";
+"use client";
 
-export default function LegacyConfirmRedirect({ params }: { params: Promise<{ token: string }> }) {
-  const p = React.use(params);
-  redirect(`/confirm/${p.token}`);
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+export default function LegacyConfirmRedirect() {
+  const params = useParams();
+  const router = useRouter();
+  const token = params?.token as string;
+
+  useEffect(() => {
+    if (token) {
+      router.replace(`/confirm/${token}`);
+    }
+  }, [token, router]);
+
+  return null;
 }
 
 

@@ -23,16 +23,16 @@ export class DailyInterestJob {
    */
   start(): void {
     if (this.intervalId || this.timeoutId) {
-      console.log("⚠️ Le job d'intérêts quotidiens est déjà en cours d'exécution");
+      console.log("Le job d'intérêts quotidiens est déjà en cours d'exécution");
       return;
     }
 
-    console.log("🔄 Démarrage du job de calcul des intérêts quotidiens");
+    console.log("Démarrage du job de calcul des intérêts quotidiens");
     
     // Fonction pour programmer la prochaine exécution à minuit
     const scheduleNextExecution = () => {
       const msUntilMidnight = this.getMillisecondsUntilMidnight();
-      console.log(`⏰ Prochaine exécution programmée dans ${Math.round(msUntilMidnight / 1000 / 60)} minutes (à minuit)`);
+      console.log(`Prochaine exécution programmée dans ${Math.round(msUntilMidnight / 1000 / 60)} minutes (à minuit)`);
       
       this.timeoutId = setTimeout(() => {
         this.execute();
@@ -63,7 +63,7 @@ export class DailyInterestJob {
       stopped = true;
     }
     if (stopped) {
-      console.log("⏹️ Arrêt du job de calcul des intérêts quotidiens");
+      console.log("Arrêt du job de calcul des intérêts quotidiens");
     }
   }
 
@@ -72,20 +72,20 @@ export class DailyInterestJob {
    */
   async execute(): Promise<void> {
     if (this.isRunning) {
-      console.log("⏳ Le calcul des intérêts est déjà en cours...");
+      console.log("Le calcul des intérêts est déjà en cours...");
       return;
     }
 
     this.isRunning = true;
     try {
-      console.log("💰 Début du calcul des intérêts quotidiens...");
+      console.log("Début du calcul des intérêts quotidiens...");
       const result = await this.calculateDailyInterest.execute();
       console.log(
-        `✅ Calcul des intérêts terminé: ${result.accountsProcessed} comptes traités, ` +
+        `Calcul des intérêts terminé: ${result.accountsProcessed} comptes traités, ` +
         `${result.totalInterest.toFixed(2)}€ d'intérêts distribués`
       );
     } catch (error) {
-      console.error("❌ Erreur lors du calcul des intérêts:", error);
+      console.error("Erreur lors du calcul des intérêts:", error);
     } finally {
       this.isRunning = false;
     }

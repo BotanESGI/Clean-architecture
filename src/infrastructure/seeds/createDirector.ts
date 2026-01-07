@@ -16,9 +16,9 @@ export async function seedDirector(dataSource: DataSource) {
       existingDirector.role = "DIRECTOR";
       existingDirector.isVerified = true;
       await clientRepo.save(existingDirector);
-      console.log("✅ Le directeur a été mis à jour avec le role DIRECTOR");
+      console.log("Le directeur a été mis à jour avec le role DIRECTOR");
     } else {
-      console.log("✅ Le directeur existe déjà");
+      console.log("Le directeur existe déjà");
     }
     return;
   }
@@ -38,8 +38,8 @@ export async function seedDirector(dataSource: DataSource) {
 
   await clientRepo.save(director);
   
-  console.log("✅ Directeur créé avec succès !");
-  console.log("📧 Email: director@banque.com");
-  console.log("🔑 Mot de passe: Admin123!");
+  console.log("Directeur créé avec succès !");
+  console.log("Email: director@banque.com");
+  console.log("Mot de passe: Admin123!");
 }
 

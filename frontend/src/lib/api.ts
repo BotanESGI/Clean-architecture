@@ -82,6 +82,9 @@ export const api = {
   getAvailableAdvisor: () =>
     request<{ id: string; firstName: string; lastName: string; email: string }>("/private-messages/advisor", "GET"),
   
+  getAssignedAdvisor: (clientId: string) =>
+    request<{ id: string; firstName: string; lastName: string; email: string }>(`/clients/${clientId}/conversation/advisor`, "GET"),
+  
   listPrivateMessages: (advisorId: string, token: string) =>
     request<{ messages: Array<{ id: string; senderId: string; receiverId: string; content: string; createdAt: string; isRead: boolean }> }>(`/private-messages/${advisorId}`, "GET", undefined, token),
   
@@ -159,6 +162,13 @@ export const api = {
     
     recordCreditPayment: (creditId: string, token: string) =>
       request<{ message: string; paymentDetails: { interestAmount: number; capitalAmount: number; insuranceAmount: number; newRemainingCapital: number } }>(`/advisor/credits/${creditId}/payment`, "POST", undefined, token),
+    
+    // Transfert de conversation
+    listAdvisors: (token: string) =>
+      request<{ advisors: Array<{ id: string; firstName: string; lastName: string; email: string }> }>("/advisor/advisors", "GET", undefined, token),
+    
+    transferConversation: (clientId: string, toAdvisorId: string, token: string) =>
+      request<{ message: string }>("/private-messages/transfer", "POST", { clientId, toAdvisorId }, token),
   },
 
   // Investment APIs (Client)

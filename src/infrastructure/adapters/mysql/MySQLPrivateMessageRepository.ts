@@ -26,6 +26,18 @@ export class MySQLPrivateMessageRepository implements PrivateMessageRepository {
     return entities.map(e => this.toDomain(e));
   }
 
+  async findByClientId(clientId: string): Promise<PrivateMessage[]> {
+    // Récupérer tous les messages où le client est impliqué (sender ou receiver)
+    // Utile pour les conversations non assignées
+    const entities = await this.repo
+      .createQueryBuilder("message")
+      .where("message.senderId = :clientId", { clientId })
+      .orWhere("message.receiverId = :clientId", { clientId })
+      .orderBy("message.createdAt", "ASC")
+      .getMany();
+    return entities.map(e => this.toDomain(e));
+  }
+
   async findById(id: string): Promise<PrivateMessage | null> {
     const entity = await this.repo.findOne({ where: { id } });
     return entity ? this.toDomain(entity) : null;

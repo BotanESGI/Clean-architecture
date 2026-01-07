@@ -26,28 +26,141 @@ export function PrivateChat({ clientId }: PrivateChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
-  // Charger le conseiller disponible
-  useEffect(() => {
-    async function loadAdvisor() {
-      try {
-        const data = await api.getAvailableAdvisor();
-        setAdvisor(data);
-      } catch (error) {
-        show("Erreur lors du chargement du conseiller", "error");
-      } finally {
-        setIsLoadingAdvisor(false);
-      }
-    }
-    loadAdvisor();
-  }, [show]);
+  const [advisorId, setAdvisorId] = useState<string>("");
+  const advisorIdRef = useRef<string>("");
 
-  // Utiliser le hook WebSocket
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadAdvisor = () => {
+      api.getAssignedAdvisor(clientId)
+        .then((data) => {
+          if (cancelled) return;
+          if (data.id !== advisorIdRef.current) {
+            setAdvisor(data);
+            setAdvisorId(data.id);
+            advisorIdRef.current = data.id;
+          }
+          setIsLoadingAdvisor(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          api.getAvailableAdvisor()
+            .then((data) => {
+              if (cancelled) return;
+              if (data.id !== advisorIdRef.current) {
+                setAdvisor(data);
+                setAdvisorId(data.id);
+                advisorIdRef.current = data.id;
+              }
+              setIsLoadingAdvisor(false);
+            })
+            .catch(() => {
+              if (!cancelled) {
+                show("Erreur lors du chargement du conseiller", "error");
+                setIsLoadingAdvisor(false);
+              }
+            });
+        });
+    };
+
+    loadAdvisor();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, show]);
+
+  useEffect(() => {
+    advisorIdRef.current = advisorId;
+  }, [advisorId]);
+
+  useEffect(() => {
+    const handleConversationTransferred = () => {
+      api.getAssignedAdvisor(clientId)
+        .then((data) => {
+          if (data.id !== advisorIdRef.current) {
+            setAdvisor(data);
+            setAdvisorId(data.id);
+            advisorIdRef.current = data.id;
+          }
+        })
+        .catch(() => {
+          api.getAvailableAdvisor()
+            .then((data) => {
+              if (data.id !== advisorIdRef.current) {
+                setAdvisor(data);
+                setAdvisorId(data.id);
+                advisorIdRef.current = data.id;
+              }
+            })
+            .catch(() => {});
+        });
+    };
+
+    window.addEventListener("conversation_transferred", handleConversationTransferred);
+    return () => {
+      window.removeEventListener("conversation_transferred", handleConversationTransferred);
+    };
+  }, [clientId, show]);
+
+  useEffect(() => {
+    if (!advisorId) return;
+    
+    const interval = setInterval(() => {
+      api.getAssignedAdvisor(clientId)
+        .then((data) => {
+          if (data.id !== advisorIdRef.current) {
+            setAdvisor(data);
+            setAdvisorId(data.id);
+            advisorIdRef.current = data.id;
+          }
+        })
+        .catch(() => {
+          api.getAvailableAdvisor()
+            .then((data) => {
+              if (data.id !== advisorIdRef.current) {
+                setAdvisor(data);
+                setAdvisorId(data.id);
+                advisorIdRef.current = data.id;
+              }
+            })
+            .catch(() => {});
+        });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [clientId, advisorId, show]);
+
   const { messages, isConnected, isOtherUserOnline, isTyping, sendMessage, startTyping, stopTyping } =
     usePrivateMessageSocket({
       token: token || "",
       userId: clientId,
-      advisorId: advisor?.id || "",
-      role: "CLIENT", // Indiquer qu'on est un client
+      advisorId: advisorId,
+      role: advisorId ? "CLIENT" : undefined,
+      onMessage: (message) => {
+        if (message.senderId !== advisorId && message.senderId !== clientId) {
+          api.getAssignedAdvisor(clientId)
+            .then((data) => {
+              if (data.id !== advisorIdRef.current) {
+                setAdvisor(data);
+                setAdvisorId(data.id);
+                advisorIdRef.current = data.id;
+              }
+            })
+            .catch(() => {
+              api.getAvailableAdvisor()
+                .then((data) => {
+                  if (data.id !== advisorIdRef.current) {
+                    setAdvisor(data);
+                    setAdvisorId(data.id);
+                    advisorIdRef.current = data.id;
+                  }
+                })
+                .catch(() => {});
+            });
+        }
+      },
       onTyping: (isTyping, userId) => {
         setTypingUsers((prev) => {
           const next = new Set(prev);
@@ -94,7 +207,7 @@ export function PrivateChat({ clientId }: PrivateChatProps) {
     stopTyping();
   };
 
-  if (isLoadingAdvisor) {
+  if (isLoadingAdvisor || !advisorId) {
     return (
       <div className="glass border border-white/10 rounded-2xl p-6">
         <p className="text-muted text-center">Chargement du conseiller...</p>

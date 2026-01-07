@@ -38,25 +38,24 @@ export function usePrivateMessageSocket({
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const advisorIdRef = useRef(advisorId);
+  const roleRef = useRef(role);
   
-  // Utiliser des refs pour stocker les callbacks et éviter les re-renders
   const onMessageRef = useRef(onMessage);
   const onTypingRef = useRef(onTyping);
 
-  // Mettre à jour les refs quand les callbacks changent
   useEffect(() => {
     onMessageRef.current = onMessage;
     onTypingRef.current = onTyping;
-  }, [onMessage, onTyping]);
+    advisorIdRef.current = advisorId;
+    roleRef.current = role;
+  }, [onMessage, onTyping, advisorId, role]);
 
   // Initialiser la connexion WebSocket
   useEffect(() => {
     if (!token || !userId || !advisorId || !role) {
-      console.log("⏸️ WebSocket: Paramètres manquants", { token: !!token, userId: !!userId, advisorId: !!advisorId, role });
       return;
     }
-
-    console.log("🔌 WebSocket: Initialisation avec", { userId, advisorId, role });
 
     const newSocket = io(BASE_URL, {
       auth: { token },
@@ -64,67 +63,46 @@ export function usePrivateMessageSocket({
       transports: ["websocket", "polling"],
     });
 
-    // ÉCOUTER LES ÉVÉNEMENTS DE PRÉSENCE AVANT LA CONNEXION
-    // pour ne pas manquer les événements qui arrivent juste après la connexion
-    
-    // Écouter les événements de présence (en ligne/hors ligne)
-    newSocket.on("user_online", (data: { userId: string; role?: string }) => {
-      console.log("🟢 User online event:", data.userId, "Looking for:", advisorId);
-      // Si l'utilisateur qui vient de se connecter est l'autre participant (conseiller ou client)
-      if (data.userId === advisorId) {
-        console.log("✅ Autre utilisateur en ligne détecté - Mise à jour du statut");
+    const handleUserOnline = (data: { userId: string; role?: string }) => {
+      const currentRole = roleRef.current;
+      const currentAdvisorId = advisorIdRef.current;
+      if (currentRole === "CLIENT" && data.userId && currentAdvisorId && data.userId === currentAdvisorId) {
         setIsOtherUserOnline(true);
       }
-    });
+    };
 
-    newSocket.on("user_offline", (data: { userId: string; role?: string }) => {
-      console.log("🔴 User offline event:", data.userId, "Looking for:", advisorId);
-      // Si l'utilisateur qui vient de se déconnecter est l'autre participant
-      if (data.userId === advisorId) {
-        console.log("❌ Autre utilisateur hors ligne détecté - Mise à jour du statut");
+    const handleUserOffline = (data: { userId: string; role?: string }) => {
+      const currentRole = roleRef.current;
+      const currentAdvisorId = advisorIdRef.current;
+      if (currentRole === "CLIENT" && data.userId && currentAdvisorId && data.userId === currentAdvisorId) {
         setIsOtherUserOnline(false);
       }
-    });
+    };
+
+    newSocket.on("user_online", handleUserOnline);
+    newSocket.on("user_offline", handleUserOffline);
 
     newSocket.on("connect", () => {
-      console.log("🔌 WebSocket connecté");
       setIsConnected(true);
       
-      // Charger l'historique de la conversation après un court délai
-      // pour s'assurer que le serveur a bien enregistré l'utilisateur
       setTimeout(() => {
         if (advisorId && role) {
-          console.log("📨 WebSocket: Chargement conversation", { role, advisorId });
           if (role === "ADVISOR") {
-            // Si on est advisor, on charge avec clientId (qui est dans advisorId)
-            console.log("📨 WebSocket: Émission load_conversation avec clientId:", advisorId);
             newSocket.emit("load_conversation", { clientId: advisorId });
           } else if (role === "CLIENT") {
-            // Si on est client, on charge avec advisorId
-            console.log("📨 WebSocket: Émission load_conversation avec advisorId:", advisorId);
             newSocket.emit("load_conversation", { advisorId });
-          } else {
-            console.error("❌ WebSocket: Rôle invalide:", role);
           }
-        } else {
-          console.error("❌ WebSocket: Impossible de charger la conversation - paramètres manquants", { advisorId, role });
         }
-      }, 200); // Augmenter légèrement le délai pour laisser le temps au serveur
+      }, 200);
     });
 
     newSocket.on("disconnect", () => {
-      console.log("🔌 WebSocket déconnecté");
       setIsConnected(false);
     });
 
     newSocket.on("conversation_loaded", (data: { messages: PrivateMessage[]; isOtherUserOnline?: boolean }) => {
-      console.log("📨 Conversation chargée, données complètes:", data);
-      console.log("📨 Statut autre utilisateur:", data.isOtherUserOnline, typeof data.isOtherUserOnline);
       setMessages(data.messages);
-      // Mettre à jour le statut de l'autre utilisateur
-      // Utiliser false par défaut si non défini
       const onlineStatus = typeof data.isOtherUserOnline === "boolean" ? data.isOtherUserOnline : false;
-      console.log("📨 Définition du statut à:", onlineStatus);
       setIsOtherUserOnline(onlineStatus);
     });
 
@@ -135,10 +113,10 @@ export function usePrivateMessageSocket({
       };
       setMessages((prev) => [...prev, newMessage]);
       
-      // Utiliser la ref pour le callback
       if (onMessageRef.current) {
         onMessageRef.current(newMessage);
       }
+
 
       // Afficher une notification si l'utilisateur n'est pas sur la page
       if (document.hidden && "Notification" in window && Notification.permission === "granted") {
@@ -161,7 +139,6 @@ export function usePrivateMessageSocket({
         createdAt: new Date(data.message.createdAt),
       };
       setMessages((prev) => {
-        // Éviter les doublons
         if (prev.some((m) => m.id === newMessage.id)) {
           return prev;
         }
@@ -170,36 +147,33 @@ export function usePrivateMessageSocket({
     });
 
     newSocket.on("typing", (data: { userId: string; isTyping: boolean }) => {
-      if (data.userId !== userId) {
-        setIsTyping(data.isTyping);
-        // Utiliser la ref pour le callback
-        if (onTypingRef.current) {
-          onTypingRef.current(data.isTyping, data.userId);
+      const currentRole = roleRef.current;
+      const currentAdvisorId = advisorIdRef.current;
+      
+      if (currentRole === "CLIENT") {
+        // Pour le client, vérifier que l'événement vient du conseiller (advisorId)
+        // data.userId = l'ID de celui qui tape (le conseiller)
+        // currentAdvisorId = l'ID du conseiller assigné au client
+        if (data.userId && currentAdvisorId && data.userId === currentAdvisorId && data.userId !== userId) {
+          setIsTyping(data.isTyping);
+          if (onTypingRef.current) {
+            onTypingRef.current(data.isTyping, data.userId);
+          }
+        }
+      } else if (currentRole === "ADVISOR") {
+        // Pour le conseiller, vérifier que l'événement vient du client (advisorId pour l'advisor = clientId)
+        // data.userId = l'ID de celui qui tape (le client)
+        // currentAdvisorId = l'ID du client pour l'advisor
+        if (data.userId && currentAdvisorId && data.userId === currentAdvisorId && data.userId !== userId) {
+          setIsTyping(data.isTyping);
+          if (onTypingRef.current) {
+            onTypingRef.current(data.isTyping, data.userId);
+          }
         }
       }
     });
 
-    // Écouter les événements de présence (en ligne/hors ligne)
-    // IMPORTANT: Ces événements doivent être écoutés AVANT la connexion pour ne pas manquer les événements
-    newSocket.on("user_online", (data: { userId: string; role?: string }) => {
-      console.log("🟢 User online event:", data.userId, "Looking for:", advisorId);
-      // Si l'utilisateur qui vient de se connecter est l'autre participant (conseiller ou client)
-      if (data.userId === advisorId) {
-        console.log("✅ Autre utilisateur en ligne détecté - Mise à jour du statut");
-        setIsOtherUserOnline(true);
-      }
-    });
 
-    newSocket.on("user_offline", (data: { userId: string; role?: string }) => {
-      console.log("🔴 User offline event:", data.userId, "Looking for:", advisorId);
-      // Si l'utilisateur qui vient de se déconnecter est l'autre participant
-      if (data.userId === advisorId) {
-        console.log("❌ Autre utilisateur hors ligne détecté - Mise à jour du statut");
-        setIsOtherUserOnline(false);
-      }
-    });
-
-    // Écouter les notifications push
     newSocket.on("notification", async (data: { title: string; message: string }) => {
       if ("Notification" in window && Notification.permission === "granted") {
         const notification = new Notification(data.title, {
@@ -213,6 +187,23 @@ export function usePrivateMessageSocket({
           notification.close();
         };
       }
+    });
+
+    newSocket.on("conversation_transferred", (data: { newAdvisorId: string }) => {
+      if (onMessageRef.current) {
+        const event = new CustomEvent("conversation_transferred", { detail: data });
+        window.dispatchEvent(event);
+      }
+    });
+
+    newSocket.on("conversation_assigned", (data: { clientId: string }) => {
+      const event = new CustomEvent("conversation_assigned", { detail: data });
+      window.dispatchEvent(event);
+    });
+
+    newSocket.on("conversation_unassigned", (data: { clientId: string }) => {
+      const event = new CustomEvent("conversation_unassigned", { detail: data });
+      window.dispatchEvent(event);
     });
 
     newSocket.on("error", (error: any) => {
@@ -244,7 +235,6 @@ export function usePrivateMessageSocket({
     };
   }, [token, userId, advisorId, role]);
 
-  // Fonction pour arrêter le statut "en train d'écrire"
   const stopTyping = useCallback(() => {
     const currentSocket = socketRef.current;
     if (!currentSocket) return;
@@ -260,7 +250,6 @@ export function usePrivateMessageSocket({
     }
   }, [advisorId]);
 
-  // Fonction pour envoyer un message
   const sendMessage = useCallback(
     (content: string) => {
       const currentSocket = socketRef.current;
@@ -271,16 +260,16 @@ export function usePrivateMessageSocket({
         content: content.trim(),
       });
 
-      // Arrêter le statut "en train d'écrire"
       stopTyping();
     },
     [advisorId, stopTyping]
   );
 
-  // Fonction pour indiquer qu'on est en train d'écrire
   const startTyping = useCallback(() => {
     const currentSocket = socketRef.current;
-    if (!currentSocket) return;
+    if (!currentSocket || !advisorId) {
+      return;
+    }
 
     currentSocket.emit("typing", {
       receiverId: advisorId,
@@ -294,7 +283,7 @@ export function usePrivateMessageSocket({
     typingTimeoutRef.current = setTimeout(() => {
       stopTyping();
     }, 3000);
-  }, [advisorId, stopTyping]);
+  }, [advisorId, stopTyping, role, userId]);
 
   return {
     socket,

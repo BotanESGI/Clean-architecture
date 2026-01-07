@@ -1,13 +1,23 @@
 import { PrivateMessage } from "../../domain/entities/PrivateMessage";
 import { PrivateMessageRepository } from "../repositories/PrivateMessageRepository";
 import { ClientRepository } from "../repositories/ClientRepository";
+import { ConversationRepository } from "../repositories/ConversationRepository";
+import { GetOrCreateConversation } from "./GetOrCreateConversation";
+import { AssignConversationToAdvisor } from "./AssignConversationToAdvisor";
 import crypto from "crypto";
 
 export class SendPrivateMessage {
+  private getOrCreateConversation: GetOrCreateConversation;
+  private assignConversation: AssignConversationToAdvisor;
+
   constructor(
     private readonly messageRepo: PrivateMessageRepository,
-    private readonly clientRepo: ClientRepository
-  ) {}
+    private readonly clientRepo: ClientRepository,
+    private readonly conversationRepo: ConversationRepository
+  ) {
+    this.getOrCreateConversation = new GetOrCreateConversation(conversationRepo, clientRepo);
+    this.assignConversation = new AssignConversationToAdvisor(conversationRepo, clientRepo);
+  }
 
   async execute(
     senderId: string,
@@ -46,6 +56,22 @@ export class SendPrivateMessage {
 
     if (content.length > 1000) {
       throw new Error("Le message ne peut pas dépasser 1000 caractères");
+    }
+
+    const isSenderClient = senderRole === "CLIENT";
+    const isReceiverClient = receiverRole === "CLIENT";
+    const clientId = isSenderClient ? senderId : receiverId;
+    const advisorId = isSenderClient ? receiverId : senderId;
+
+    if (isSenderClient) {
+      await this.getOrCreateConversation.execute(clientId);
+    }
+
+    if (isReceiverClient && senderRole === "ADVISOR") {
+      const conversation = await this.conversationRepo.findByClientId(clientId);
+      if (conversation && conversation.isPending()) {
+        await this.assignConversation.execute(clientId, advisorId);
+      }
     }
 
     const message = new PrivateMessage(

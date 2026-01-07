@@ -29,33 +29,33 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = (data: LoginFormData) => {
     setMessage("");
     setIsSuccess(false);
     
-    try {
-      const res = await api.login(data);
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("role", res.role);
-      setToken(res.token);
-      setMessage(t("auth.loginSuccess") + " !");
-      setIsSuccess(true);
-      show(t("auth.loginSuccess"), "success");
+    api.login(data)
+      .then((res) => {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("role", res.role);
+        setToken(res.token);
+        setMessage(t("auth.loginSuccess") + " !");
+        setIsSuccess(true);
+        show(t("auth.loginSuccess"), "success");
 
-      // Redirection selon le rôle
-      if (res.role === "DIRECTOR") {
-        router.push("/director/dashboard");
-      } else if (res.role === "ADVISOR") {
-        router.push("/advisor/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t("auth.loginError");
-      setMessage(msg);
-      setIsSuccess(false);
-      show(msg, "error");
-    }
+        if (res.role === "DIRECTOR") {
+          router.push("/director/dashboard");
+        } else if (res.role === "ADVISOR") {
+          router.push("/advisor/dashboard");
+        } else {
+          router.push("/dashboard");
+        }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : t("auth.loginError");
+        setMessage(msg);
+        setIsSuccess(false);
+        show(msg, "error");
+      });
   };
 
   return (

@@ -4,16 +4,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "../../../hooks/useTranslation";
 
-type PageProps = {
-  searchParams?: Promise<{ email?: string | string[] }>;
-};
-
-export default async function RegisterSentPage({ searchParams }: PageProps) {
+export default function RegisterSentPage() {
   const { t } = useTranslation();
-
-  const params = searchParams ? await searchParams : undefined;
-  const raw = params?.email;
-  const email = Array.isArray(raw) ? raw[0] : raw;
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email");
 
   return (
       <div className="min-h-[60vh] flex items-center justify-center">

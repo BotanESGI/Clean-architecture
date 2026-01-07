@@ -38,13 +38,13 @@ export class PrivateMessageSocket {
       try {
         const token = socket.handshake.auth.token;
         if (!token) {
-          console.error("❌ WebSocket: Token manquant dans handshake.auth");
+          console.error("WebSocket: Token manquant dans handshake.auth");
           return next(new Error("Token manquant"));
         }
 
         const secret = process.env.JWT_SECRET;
         if (!secret) {
-          console.error("❌ WebSocket: JWT_SECRET non configuré");
+          console.error("WebSocket: JWT_SECRET non configuré");
           return next(new Error("JWT_SECRET non configuré"));
         }
 
@@ -52,17 +52,16 @@ export class PrivateMessageSocket {
         const client = await this.clientRepo.findById(decoded.clientId);
         
         if (!client) {
-          console.error(`❌ WebSocket: Utilisateur introuvable pour clientId: ${decoded.clientId}`);
+          console.error(`WebSocket: Utilisateur introuvable pour clientId: ${decoded.clientId}`);
           return next(new Error("Utilisateur introuvable"));
         }
 
         socket.data.userId = decoded.clientId;
         socket.data.role = client.getRole();
-        console.log(`✅ WebSocket: Authentification réussie pour ${decoded.clientId} (${client.getRole()})`);
         next();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-        console.error("❌ WebSocket: Erreur d'authentification:", errorMessage);
+        console.error("WebSocket: Erreur d'authentification:", errorMessage);
         if (error instanceof jwt.JsonWebTokenError) {
           console.error("   Type:", error.name);
         }
@@ -72,7 +71,7 @@ export class PrivateMessageSocket {
 
     // Gérer les erreurs de connexion
     this.io.on("connection_error", (error) => {
-      console.error("❌ WebSocket: Erreur de connexion:", error.message || error);
+      console.error("WebSocket: Erreur de connexion:", error.message || error);
     });
 
     this.io.on("connection", (socket) => {
@@ -83,15 +82,12 @@ export class PrivateMessageSocket {
       this.users.set(userId, { userId, role, socketId: socket.id });
       this.socketToUser.set(socket.id, userId);
 
-      console.log(`🔌 Utilisateur connecté: ${userId} (${role})`);
-
       // Joindre la room de l'utilisateur pour recevoir ses messages
       socket.join(`user:${userId}`);
 
       // Écouter l'événement pour charger l'historique d'une conversation
       socket.on("load_conversation", async (data: { advisorId?: string; clientId?: string }) => {
         try {
-          console.log(`📨 load_conversation reçu - userId: ${userId}, role: ${role}, data:`, data);
           
           let otherUserId: string | null = null;
           let isOtherUserOnline = false;
@@ -101,23 +97,33 @@ export class PrivateMessageSocket {
             otherUserId = data.advisorId;
             const messages = await this.listMessagesUseCase.execute(userId, data.advisorId);
             isOtherUserOnline = this.users.has(otherUserId);
-            console.log(`📨 Client ${userId} charge conversation avec conseiller ${otherUserId}, statut: ${isOtherUserOnline}`);
-            console.log(`👥 Utilisateurs connectés:`, Array.from(this.users.keys()));
             const response = { messages, isOtherUserOnline: Boolean(isOtherUserOnline) };
-            console.log(`📤 Envoi conversation_loaded:`, JSON.stringify({ messagesCount: messages.length, isOtherUserOnline: response.isOtherUserOnline }));
             socket.emit("conversation_loaded", response);
+            
+            // Si le conseiller est connecté, envoyer l'événement user_online au client
+            // pour qu'il voie que le conseiller est en ligne
+            if (isOtherUserOnline) {
+              // Émettre au socket du client qui a chargé la conversation
+              socket.emit("user_online", { userId: otherUserId, role: "ADVISOR" });
+            }
           } else if (role === "ADVISOR" && data.clientId) {
             // Le conseiller charge une conversation avec un client
             otherUserId = data.clientId;
             const messages = await this.listMessagesUseCase.execute(data.clientId, userId);
             isOtherUserOnline = this.users.has(otherUserId);
-            console.log(`📨 Conseiller ${userId} charge conversation avec client ${otherUserId}, statut: ${isOtherUserOnline}`);
-            console.log(`👥 Utilisateurs connectés:`, Array.from(this.users.keys()));
             const response = { messages, isOtherUserOnline: Boolean(isOtherUserOnline) };
-            console.log(`📤 Envoi conversation_loaded:`, JSON.stringify({ messagesCount: messages.length, isOtherUserOnline: response.isOtherUserOnline }));
             socket.emit("conversation_loaded", response);
+            
+            // Envoyer l'événement user_online au client pour qu'il voie que le conseiller est en ligne
+            const clientSocket = Array.from(this.io.sockets.sockets.values()).find(
+              s => s.data.userId === otherUserId
+            );
+            if (clientSocket) {
+              // Émettre avec userId = l'ID du conseiller (celui qui charge la conversation)
+              clientSocket.emit("user_online", { userId, role: "ADVISOR" });
+            }
           } else {
-            console.error(`❌ Paramètres invalides - role: ${role}, advisorId: ${data.advisorId}, clientId: ${data.clientId}`);
+            console.error(`Paramètres invalides - role: ${role}, advisorId: ${data.advisorId}, clientId: ${data.clientId}`);
             socket.emit("error", { message: `Paramètres invalides - role: ${role}, advisorId: ${data.advisorId}, clientId: ${data.clientId}` });
           }
         } catch (error) {
@@ -149,11 +155,14 @@ export class PrivateMessageSocket {
 
       // Écouter l'événement "en train d'écrire"
       socket.on("typing", (data: { receiverId: string; isTyping: boolean }) => {
-        // Envoyer le statut au destinataire
+        // Envoyer le statut au destinataire avec l'ID de l'expéditeur (celui qui tape)
         const receiverUser = this.users.get(data.receiverId);
         if (receiverUser) {
+          // Émettre l'événement typing au destinataire avec userId = l'ID de celui qui tape
+          // userId est l'ID de celui qui envoie l'événement (celui qui tape)
+          // data.receiverId est l'ID du destinataire (celui qui doit voir l'indicateur)
           this.io.to(`user:${data.receiverId}`).emit("typing", {
-            userId,
+            userId: userId,
             isTyping: data.isTyping,
           });
         }
@@ -163,14 +172,44 @@ export class PrivateMessageSocket {
       // (Tous les utilisateurs connectés pourront voir le statut)
       // Émettre après un court délai pour s'assurer que l'utilisateur est bien enregistré
       setTimeout(() => {
+        // Si c'est un conseiller qui vient de se connecter, notifier tous les clients connectés
+        if (role === "ADVISOR") {
+          const clients = Array.from(this.users.values()).filter(u => u.role === "CLIENT");
+          
+          // Émettre d'abord à tous les clients individuellement
+          clients.forEach(client => {
+            const clientSocket = Array.from(this.io.sockets.sockets.values()).find(
+              s => s.data.userId === client.userId
+            );
+            if (clientSocket) {
+              // Émettre l'événement avec userId = l'ID du conseiller qui vient de se connecter
+              clientSocket.emit("user_online", { userId, role: "ADVISOR" });
+            }
+          });
+        } 
+        // Si c'est un client qui vient de se connecter, notifier tous les conseillers connectés
+        else if (role === "CLIENT") {
+          const advisors = Array.from(this.users.values()).filter(u => u.role === "ADVISOR");
+          
+          advisors.forEach(advisor => {
+            const advisorSocket = Array.from(this.io.sockets.sockets.values()).find(
+              s => s.data.userId === advisor.userId
+            );
+            if (advisorSocket) {
+              // Émettre l'événement avec userId = l'ID du client qui vient de se connecter
+              advisorSocket.emit("user_online", { userId, role: "CLIENT" });
+            }
+          });
+        }
+        
+        // Également émettre à tous pour compatibilité (mais les listeners spécifiques devraient déjà l'avoir capturé)
         this.io.emit("user_online", { userId, role });
-      }, 100);
+      }, 200);
 
       // Gérer la déconnexion
       socket.on("disconnect", () => {
         this.users.delete(userId);
         this.socketToUser.delete(socket.id);
-        console.log(`🔌 Utilisateur déconnecté: ${userId}`);
         
         // Notifier tous les utilisateurs connectés que cet utilisateur est maintenant hors ligne
         this.io.emit("user_offline", { userId, role });
