@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [stocks, setStocks] = useState<Array<{ id: string; symbol: string; name: string; currentPrice: number; isAvailable: boolean }>>([]);
   const [orders, setOrders] = useState<Array<{ id: string; stockId: string; type: string; quantity: number; price: number; fee: number; status: string; createdAt: string }>>([]);
   const [showInvestModal, setShowInvestModal] = useState(false);
+  const [bankActivities, setBankActivities] = useState<Array<{ id: string; title: string; content: string; authorId: string; createdAt: string }>>([]);
 
   // Helper function to add an activity to history
   const addActivity = useCallback((accountId: string, activity: Omit<ActivityHistoryItem, "id">) => {
@@ -205,7 +206,7 @@ export default function DashboardPage() {
           return;
         }
         
-        const [profile, list, rateData, stocksData, ordersData] = await Promise.all([
+        const [profile, list, rateData, stocksData, ordersData, activitiesData] = await Promise.all([
           api.getClient(clientId),
           api.listAccounts(clientId),
           api.getSavingsRate().catch(() => ({ rate: null })),
@@ -217,12 +218,14 @@ export default function DashboardPage() {
             console.error("Error loading orders:", err);
             return { orders: [] };
           }),
+          api.activities.list().catch(() => ({ activities: [] })),
         ]);
         
         setClientName(`${profile.firstname} ${profile.lastname}`);
         setAccounts(list);
         setStocks(stocksData.stocks || []);
         setOrders(ordersData.orders || []);
+        setBankActivities(activitiesData.activities || []);
         console.log("Stocks loaded:", stocksData.stocks?.length || 0, stocksData.stocks);
         
         // Initialiser le dernier taux connu et vérifier les changements
@@ -268,6 +271,26 @@ export default function DashboardPage() {
       load();
     }
   }, [token, loadAccountData, show]);
+
+  // SSE : feed des actualités en temps réel
+  useEffect(() => {
+    if (!mounted || !token) return;
+    const url = api.activities.streamUrl();
+    const es = new EventSource(url);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "activity" && data.id) {
+          setBankActivities((prev) => [
+            { id: data.id, title: data.title, content: data.content, authorId: data.authorId, createdAt: data.createdAt || new Date().toISOString() },
+            ...prev,
+          ]);
+        }
+      } catch (_) {}
+    };
+    es.onerror = () => es.close();
+    return () => es.close();
+  }, [mounted, token]);
 
   // Reload savings rate when account modal opens
   useEffect(() => {
@@ -582,6 +605,27 @@ export default function DashboardPage() {
             <button className="btn-secondary" onClick={() => setShowBeneficiaryModal(true)}>{t("dashboard.manageBeneficiaries")}</button>
           <button className="btn-secondary" onClick={() => setShowInvestModal(true)}>Investir</button>
           </div>
+        </div>
+      </div>
+
+      {/* Actualités de la banque (feed en temps réel via SSE) */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Actualités de la banque</h3>
+          <span className="text-xs text-muted">Temps réel</span>
+        </div>
+        <div className="divide-y divide-white/10 max-h-80 overflow-y-auto">
+          {bankActivities.length === 0 ? (
+            <p className="text-muted text-sm py-4">Aucune actualité pour le moment.</p>
+          ) : (
+            bankActivities.map((act) => (
+              <div key={act.id} className="py-4">
+                <p className="font-medium text-sm">{act.title}</p>
+                <p className="text-muted text-sm mt-1 whitespace-pre-wrap">{act.content}</p>
+                <p className="text-xs text-muted mt-2">{new Date(act.createdAt).toLocaleString("fr-FR")}</p>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

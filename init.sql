@@ -145,3 +145,17 @@ CREATE TABLE IF NOT EXISTS credits (
     FOREIGN KEY (advisor_id) REFERENCES clients(id) ON DELETE CASCADE,
     FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table des actualités (créées par conseillers/directeurs, consultables par les clients)
+CREATE TABLE IF NOT EXISTS activities (
+    id VARCHAR(36) PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    author_id VARCHAR(36) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_published BOOLEAN DEFAULT TRUE,
+    INDEX idx_author_id (author_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_is_published (is_published),
+    FOREIGN KEY (author_id) REFERENCES clients(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

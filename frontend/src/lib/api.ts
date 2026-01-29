@@ -172,6 +172,17 @@ export const api = {
     
     transferConversation: (clientId: string, toAdvisorId: string, token: string) =>
       request<{ message: string }>("/private-messages/transfer", "POST", { clientId, toAdvisorId }, token),
+
+    // Activités (actualités de la banque)
+    createActivity: (payload: { title: string; content: string }, token: string) =>
+      request<{ message: string; activity: { id: string; title: string; content: string; authorId: string; createdAt: string } }>("/advisor/activities", "POST", payload, token),
+  },
+
+  // Activités (consultables par les clients)
+  activities: {
+    list: () =>
+      request<{ activities: Array<{ id: string; title: string; content: string; authorId: string; createdAt: string }> }>("/activities", "GET"),
+    streamUrl: () => `${BASE_URL.replace(/\/$/, "")}/activities/stream`,
   },
 
   // Investment APIs (Client)

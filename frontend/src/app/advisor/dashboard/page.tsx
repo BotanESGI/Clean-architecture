@@ -56,6 +56,8 @@ export default function AdvisorDashboard() {
   const [selectedClientAccounts, setSelectedClientAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateActivityModal, setShowCreateActivityModal] = useState(false);
+  const [newActivity, setNewActivity] = useState({ title: "", content: "" });
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewData, setPreviewData] = useState<{
     monthlyPayment: number;
@@ -226,6 +228,24 @@ export default function AdvisorDashboard() {
     }
   };
 
+  const handleCreateActivity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    const { title, content } = newActivity;
+    if (!title.trim() || !content.trim()) {
+      show("Titre et contenu requis", "error");
+      return;
+    }
+    try {
+      await api.advisor.createActivity({ title: title.trim(), content: content.trim() }, token);
+      show("Actualité créée avec succès", "success");
+      setShowCreateActivityModal(false);
+      setNewActivity({ title: "", content: "" });
+    } catch (err: any) {
+      show(err.message || "Erreur lors de la création de l'actualité", "error");
+    }
+  };
+
   if (!mounted || loading) {
     return <div className="text-center py-20">{t("common.loading")}</div>;
   }
@@ -235,17 +255,26 @@ export default function AdvisorDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold">{t("advisor.title")}</h1>
           <p className="text-muted text-sm mt-1">{t("advisor.welcome")}</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary"
-        >
-          + {t("credit.createCredit")}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCreateActivityModal(true)}
+            className="btn-secondary"
+          >
+            + Créer une actualité
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary"
+          >
+            + {t("credit.createCredit")}
+          </button>
+        </div>
       </div>
 
       {/* Section rapide d'accès */}
@@ -519,6 +548,61 @@ export default function AdvisorDashboard() {
                   disabled={!newCredit.clientId || !newCredit.accountId || !newCredit.amount || !newCredit.annualInterestRate || !newCredit.insuranceRate || !newCredit.durationMonths}
                 >
                   {t("credit.create")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Activity Modal */}
+      {showCreateActivityModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-glow max-h-[90vh] overflow-y-auto">
+            <h3 className="font-semibold mb-4">Créer une actualité</h3>
+            <p className="text-muted text-sm mb-4">Cette actualité sera consultable par les clients sur leur espace (feed en temps réel).</p>
+            <form onSubmit={handleCreateActivity} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Titre</label>
+                <input
+                  type="text"
+                  maxLength={200}
+                  className="input-minimal w-full"
+                  placeholder="Ex. Nouvelle offre épargne"
+                  value={newActivity.title}
+                  onChange={(e) => setNewActivity({ ...newActivity, title: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Contenu</label>
+                <textarea
+                  rows={5}
+                  maxLength={5000}
+                  className="input-minimal w-full resize-y"
+                  placeholder="Contenu de l'actualité..."
+                  value={newActivity.content}
+                  onChange={(e) => setNewActivity({ ...newActivity, content: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateActivityModal(false);
+                    setNewActivity({ title: "", content: "" });
+                  }}
+                  className="btn-secondary flex-1"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1"
+                  disabled={!newActivity.title.trim() || !newActivity.content.trim()}
+                >
+                  Publier l'actualité
                 </button>
               </div>
             </form>

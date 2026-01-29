@@ -64,6 +64,10 @@ import { GetAvailableAdvisor } from "../../application/use-cases/GetAvailableAdv
 import { PrivateMessageController } from "../controllers/PrivateMessageController";
 import { PrivateMessageSocket } from "../../infrastructure/websocket/PrivateMessageSocket";
 import { SendNotification } from "../../application/use-cases/SendNotification";
+import { CreateActivity } from "../../application/use-cases/CreateActivity";
+import { ListPublishedActivities } from "../../application/use-cases/ListPublishedActivities";
+import { MySQLActivityRepository } from "../../infrastructure/adapters/mysql/MySQLActivityRepository";
+import { ActivityController } from "../controllers/ActivityController";
 import jwt from "jsonwebtoken";
 
 // --- Initialiser la base de données ---
@@ -95,6 +99,7 @@ async function startServer() {
   const creditRepository = new MySQLCreditRepository(AppDataSource);
   const privateMessageRepository = new MySQLPrivateMessageRepository(AppDataSource);
   const conversationRepository = new MySQLConversationRepository(AppDataSource);
+  const activityRepository = new MySQLActivityRepository(AppDataSource);
   const emailService = new RealEmailService();
 
   const registerClient = new RegisterClient(clientRepository, emailService);
@@ -165,6 +170,13 @@ async function startServer() {
   const activateCredit = new ActivateCredit(creditRepository, accountRepository, transactionRepository);
   const listCredits = new ListCredits(creditRepository);
   const recordCreditPayment = new RecordCreditPayment(creditRepository, accountRepository, transactionRepository);
+
+  // --- Use cases (Activités) ---
+  const createActivity = new CreateActivity(activityRepository, clientRepository);
+  const listPublishedActivities = new ListPublishedActivities(activityRepository);
+
+  // --- Controller (Activités) ---
+  const activityController = new ActivityController(createActivity, listPublishedActivities);
 
   // --- Controller (Accounts) ---
   const accountController = new AccountController(
@@ -411,6 +423,11 @@ async function startServer() {
     }
   });
   app.post("/advisor/notifications", requireAdvisor, notificationController.send);
+
+  // --- Routes Activités (Feed) ---
+  app.get("/activities", activityController.list);
+  app.get("/activities/stream", activityController.stream);
+  app.post("/advisor/activities", requireAdvisor, activityController.create);
 
   // --- Routes Director ---
   app.post("/director/clients", requireDirector, directorController.createClient);
