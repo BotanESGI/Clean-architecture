@@ -224,12 +224,17 @@ export default function DirectorDashboard() {
           <h1 className="text-2xl md:text-3xl font-extrabold">{t("director.title")} <span className="text-primary">{t("director.director")}</span></h1>
           <p className="text-muted text-sm mt-1">{t("director.clientManagement")}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="btn-secondary"
-        >
-          {t("director.logout")}
-        </button>
+        <div className="flex gap-2">
+          <a href="/director/group-chat" className="btn-secondary">
+            💬 Discussion de groupe
+          </a>
+          <button
+            onClick={handleLogout}
+            className="btn-secondary"
+          >
+            {t("director.logout")}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

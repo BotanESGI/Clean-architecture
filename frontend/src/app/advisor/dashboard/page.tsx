@@ -284,6 +284,11 @@ export default function AdvisorDashboard() {
           <p className="text-muted text-sm">{t("advisor.messagesDescription") || "Gérer les messages des clients"}</p>
           <p className="text-primary text-sm mt-4 font-medium">→ {t("advisor.accessMessages") || "Accéder aux messages"}</p>
         </a>
+        <a href="/advisor/group-chat" className="card p-6 hover:bg-white/10 transition cursor-pointer">
+          <h3 className="font-semibold mb-2">Discussion de groupe</h3>
+          <p className="text-muted text-sm">Communiquer avec tous les conseillers et directeurs en temps réel</p>
+          <p className="text-primary text-sm mt-4 font-medium">→ Accéder à la discussion</p>
+        </a>
       </div>
 
       {/* Stats */}

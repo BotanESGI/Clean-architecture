@@ -63,7 +63,12 @@ import { ListPrivateMessages } from "../../application/use-cases/ListPrivateMess
 import { GetAvailableAdvisor } from "../../application/use-cases/GetAvailableAdvisor";
 import { PrivateMessageController } from "../controllers/PrivateMessageController";
 import { PrivateMessageSocket } from "../../infrastructure/websocket/PrivateMessageSocket";
+import { GroupMessageSocket } from "../../infrastructure/websocket/GroupMessageSocket";
 import { SendNotification } from "../../application/use-cases/SendNotification";
+import { MySQLGroupMessageRepository } from "../../infrastructure/adapters/mysql/MySQLGroupMessageRepository";
+import { SendGroupMessage } from "../../application/use-cases/SendGroupMessage";
+import { ListGroupMessages } from "../../application/use-cases/ListGroupMessages";
+import { GroupMessageController } from "../controllers/GroupMessageController";
 import { CreateActivity } from "../../application/use-cases/CreateActivity";
 import { ListPublishedActivities } from "../../application/use-cases/ListPublishedActivities";
 import { MySQLActivityRepository } from "../../infrastructure/adapters/mysql/MySQLActivityRepository";
@@ -98,6 +103,7 @@ async function startServer() {
   const stockRepository = new MySQLStockRepository(AppDataSource);
   const creditRepository = new MySQLCreditRepository(AppDataSource);
   const privateMessageRepository = new MySQLPrivateMessageRepository(AppDataSource);
+  const groupMessageRepository = new MySQLGroupMessageRepository(AppDataSource);
   const conversationRepository = new MySQLConversationRepository(AppDataSource);
   const activityRepository = new MySQLActivityRepository(AppDataSource);
   const emailService = new RealEmailService();
@@ -143,6 +149,10 @@ async function startServer() {
   const sendPrivateMessage = new SendPrivateMessage(privateMessageRepository, clientRepository, conversationRepository);
   const listPrivateMessages = new ListPrivateMessages(privateMessageRepository, clientRepository);
   const getAvailableAdvisor = new GetAvailableAdvisor(clientRepository);
+  
+  // --- Use cases (Group Messages) ---
+  const sendGroupMessage = new SendGroupMessage(groupMessageRepository, clientRepository);
+  const listGroupMessages = new ListGroupMessages(groupMessageRepository);
   const { ListAdvisorConversations } = await import("../../application/use-cases/ListAdvisorConversations");
   const listAdvisorConversations = new ListAdvisorConversations(privateMessageRepository, clientRepository, conversationRepository);
   const { TransferConversation } = await import("../../application/use-cases/TransferConversation");
@@ -265,6 +275,19 @@ async function startServer() {
     listPrivateMessages,
     clientRepository
   );
+  
+  // --- Enregistrer les handlers de groupe dans PrivateMessageSocket ---
+  // Cela évite les conflits d'initialisation et garantit que les handlers sont attachés
+  privateMessageSocket.registerGroupHandlers(sendGroupMessage, listGroupMessages);
+  
+  // --- Group Message WebSocket (maintenant intégré dans PrivateMessageSocket) ---
+  // On garde l'instance pour compatibilité mais elle n'est plus utilisée
+  const groupMessageSocket = new GroupMessageSocket(
+    privateMessageSocket.getIO(),
+    sendGroupMessage,
+    listGroupMessages,
+    clientRepository
+  );
 
   // --- Controller (Private Messages) ---
   const privateMessageController = new PrivateMessageController(
@@ -273,6 +296,12 @@ async function startServer() {
     privateMessageRepository,
     transferConversation,
     privateMessageSocket
+  );
+  
+  // --- Controller (Group Messages) ---
+  const groupMessageController = new GroupMessageController(
+    listGroupMessages,
+    sendGroupMessage
   );
 
   // --- Use case SendNotification (doit être créé après le WebSocket) ---
@@ -405,6 +434,10 @@ async function startServer() {
   app.post("/private-messages", privateMessageController.send);
   app.post("/private-messages/transfer", requireAdvisor, privateMessageController.transfer);
   app.get("/private-messages/unread/count", privateMessageController.getUnreadCount);
+
+  // --- Routes Group Messages ---
+  app.get("/group-messages", groupMessageController.list);
+  app.post("/group-messages", groupMessageController.send);
 
   // --- Routes Advisor ---
   app.get("/advisor/conversations", requireAdvisor, async (req, res) => {

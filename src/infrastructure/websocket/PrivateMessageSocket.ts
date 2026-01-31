@@ -15,6 +15,10 @@ export class PrivateMessageSocket {
   private io: SocketIOServer;
   private users: Map<string, SocketUser> = new Map(); // userId -> SocketUser
   private socketToUser: Map<string, string> = new Map(); // socketId -> userId
+  private groupHandlers: {
+    sendGroupMessage?: any;
+    listGroupMessages?: any;
+  } = {};
 
   constructor(
     httpServer: HTTPServer,
@@ -84,6 +88,9 @@ export class PrivateMessageSocket {
 
       // Joindre la room de l'utilisateur pour recevoir ses messages
       socket.join(`user:${userId}`);
+
+      // Attacher les handlers de groupe si disponibles
+      this.attachGroupHandlers(socket);
 
       // Écouter l'événement pour charger l'historique d'une conversation
       socket.on("load_conversation", async (data: { advisorId?: string; clientId?: string }) => {
@@ -220,6 +227,117 @@ export class PrivateMessageSocket {
   // Méthode pour envoyer un message depuis le serveur (pour les notifications)
   sendMessageToUser(userId: string, event: string, data: any): void {
     this.io.to(`user:${userId}`).emit(event, data);
+  }
+
+  // Méthode pour enregistrer les handlers de groupe
+  registerGroupHandlers(sendGroupMessage: any, listGroupMessages: any): void {
+    this.groupHandlers.sendGroupMessage = sendGroupMessage;
+    this.groupHandlers.listGroupMessages = listGroupMessages;
+    
+    // Attacher les handlers aux sockets déjà connectés
+    setTimeout(() => {
+      const existingSockets = Array.from(this.io.sockets.sockets.values());
+      console.log(`[PrivateMessageSocket] Attachement des handlers de groupe à ${existingSockets.length} sockets existants`);
+      existingSockets.forEach((socket) => {
+        this.attachGroupHandlers(socket);
+      });
+    }, 500);
+  }
+
+  private attachGroupHandlers(socket: any): void {
+    if (!this.groupHandlers.sendGroupMessage || !this.groupHandlers.listGroupMessages) {
+      return;
+    }
+
+    const GROUP_ROOM = "group_chat";
+
+    // Handler pour rejoindre la discussion de groupe
+    socket.on("join_group_chat", async () => {
+        try {
+          console.log(`[PrivateMessageSocket] join_group_chat reçu de socket ${socket.id}`);
+          
+          const userId = socket.data.userId;
+          const role = socket.data.role;
+
+          console.log(`[PrivateMessageSocket] userId: ${userId}, role: ${role}`);
+
+          if (!userId || !role) {
+            console.error("[PrivateMessageSocket] Authentification manquante pour join_group_chat");
+            socket.emit("error", { message: "Authentification requise" });
+            return;
+          }
+
+          // Seuls les conseillers et directeurs peuvent rejoindre
+          if (role !== "ADVISOR" && role !== "DIRECTOR") {
+            console.error(`[PrivateMessageSocket] Accès refusé pour role: ${role}`);
+            socket.emit("error", { message: "Accès refusé. Seuls les conseillers et directeurs peuvent accéder à la discussion de groupe." });
+            return;
+          }
+
+          const client = await this.clientRepo.findById(userId);
+          if (!client) {
+            console.error(`[PrivateMessageSocket] Client introuvable: ${userId}`);
+            socket.emit("error", { message: "Utilisateur introuvable" });
+            return;
+          }
+          
+          // Joindre la room de groupe
+          socket.join(GROUP_ROOM);
+          console.log(`[PrivateMessageSocket] Socket ${socket.id} a rejoint la room ${GROUP_ROOM}`);
+
+          // Charger l'historique des messages
+          const messages = await this.groupHandlers.listGroupMessages.execute(100);
+          console.log(`[PrivateMessageSocket] Envoi de ${messages.length} messages historiques`);
+          socket.emit("group_messages_loaded", { messages });
+
+          // Notifier les autres utilisateurs qu'un nouveau membre a rejoint
+          socket.to(GROUP_ROOM).emit("user_joined_group", { 
+            userId, 
+            role,
+            userName: `${client.getFirstName()} ${client.getLastName()}`
+          });
+        } catch (error) {
+          console.error("[PrivateMessageSocket] Erreur join_group_chat:", error);
+          socket.emit("error", { message: error instanceof Error ? error.message : "Erreur" });
+        }
+    });
+
+    // Handler pour envoyer un message de groupe
+    socket.on("send_group_message", async (data: { content: string }) => {
+        try {
+          console.log(`[PrivateMessageSocket] send_group_message reçu de socket ${socket.id}:`, data.content);
+          
+          const userId = socket.data.userId;
+          const role = socket.data.role;
+
+          if (!userId || !role) {
+            console.error("[PrivateMessageSocket] Authentification manquante pour send_group_message");
+            socket.emit("error", { message: "Authentification requise" });
+            return;
+          }
+
+          // Vérifier que l'utilisateur est dans la room
+          const socketRooms = Array.from(socket.rooms);
+          console.log(`[PrivateMessageSocket] Socket ${socket.id} est dans les rooms:`, socketRooms);
+          
+          if (!socketRooms.includes(GROUP_ROOM)) {
+            console.error(`[PrivateMessageSocket] Socket ${socket.id} n'est pas dans la room ${GROUP_ROOM}`);
+            socket.emit("error", { message: "Vous devez d'abord rejoindre la discussion de groupe" });
+            return;
+          }
+
+          console.log(`[PrivateMessageSocket] Création du message pour userId: ${userId}`);
+          const message = await this.groupHandlers.sendGroupMessage.execute(userId, data.content);
+          console.log(`[PrivateMessageSocket] Message créé:`, message);
+
+          // Envoyer le message à tous les membres de la room de groupe (y compris l'expéditeur)
+          console.log(`[PrivateMessageSocket] Diffusion du message à la room ${GROUP_ROOM}`);
+          this.io.to(GROUP_ROOM).emit("new_group_message", { message });
+        } catch (error) {
+          console.error("[PrivateMessageSocket] Erreur send_group_message:", error);
+          socket.emit("error", { message: error instanceof Error ? error.message : "Erreur lors de l'envoi du message" });
+        }
+    });
   }
 
   getIO(): SocketIOServer {

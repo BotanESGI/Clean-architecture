@@ -97,6 +97,15 @@ export const api = {
   getUnreadCount: (token: string) =>
     request<{ count: number }>("/private-messages/unread/count", "GET", undefined, token),
 
+  // Group Messages APIs
+  listGroupMessages: (token: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : "";
+    return request<{ messages: Array<{ id: string; senderId: string; senderRole: string; senderName: string; content: string; createdAt: string }> }>(`/group-messages${query}`, "GET", undefined, token);
+  },
+  
+  sendGroupMessage: (content: string, token: string) =>
+    request<{ message: { id: string; senderId: string; senderRole: string; senderName: string; content: string; createdAt: string } }>("/group-messages", "POST", { content }, token),
+
   // Director APIs
   director: {
     listClients: (token: string) =>
