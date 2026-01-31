@@ -8,6 +8,7 @@ import { useTranslation } from "../../hooks/useTranslation";
 import api from "../../lib/api";
 import { registerServiceWorker, requestNotificationPermission } from "../../lib/notifications";
 import { decodeClientId } from "../../lib/utils";
+import { NotificationToast } from "../../components/molecules/NotificationToast/NotificationToast";
 
 type Transaction = {
   id: string;
@@ -48,6 +49,8 @@ export default function DashboardPage() {
   const { show } = useToast();
   const [modalBanner, setModalBanner] = useState("");
   const [accounts, setAccounts] = useState<Array<{ id: string; iban: string; name: string; balance: number; accountType?: string; createdAt?: string }>>([]);
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message: string }>>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [displayedCardIndex, setDisplayedCardIndex] = useState<number>(0);
   const [activityHistory, setActivityHistory] = useState<ActivityHistoryItem[]>([]);
@@ -156,6 +159,17 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
+  // Charger le nombre de notifications non lues
+  const loadUnreadCount = async () => {
+    if (!token) return;
+    try {
+      const data = await api.notifications.getUnreadCount(token);
+      setUnreadNotificationCount(data.count);
+    } catch (error) {
+      console.error("Erreur lors du chargement du nombre de notifications:", error);
+    }
+  };
+
   // Initialiser les notifications push
   useEffect(() => {
     if (!mounted || !token) return;
@@ -183,6 +197,13 @@ export default function DashboardPage() {
     }
 
     initNotifications();
+    
+    // Charger le nombre de notifications non lues
+    loadUnreadCount();
+    
+    // Recharger toutes les 30 secondes
+    const countInterval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(countInterval);
   }, [mounted, token]);
 
   // Vérifier l'authentification (uniquement après le montage)
@@ -271,6 +292,31 @@ export default function DashboardPage() {
       load();
     }
   }, [token, loadAccountData, show]);
+
+  // Écouter les notifications reçues via WebSocket
+  useEffect(() => {
+    if (!mounted || !token) return;
+
+    const handleNotification = (event: CustomEvent<{ title: string; message: string }>) => {
+      const notification = {
+        id: `notification-${Date.now()}-${Math.random()}`,
+        title: event.detail.title,
+        message: event.detail.message,
+      };
+      setNotifications((prev) => [...prev, notification]);
+      show(event.detail.title, "info");
+      // Recharger le compteur
+      loadUnreadCount();
+    };
+
+    window.addEventListener("notification_received", handleNotification as EventListener);
+    window.addEventListener("notification_read", loadUnreadCount);
+
+    return () => {
+      window.removeEventListener("notification_received", handleNotification as EventListener);
+      window.removeEventListener("notification_read", loadUnreadCount);
+    };
+  }, [mounted, token, show]);
 
   // SSE : feed des actualités en temps réel
   useEffect(() => {
@@ -413,6 +459,18 @@ export default function DashboardPage() {
 
   return (
     <>
+      {/* Notifications toast */}
+      {notifications.map((notification) => (
+        <NotificationToast
+          key={notification.id}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => {
+            setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+          }}
+        />
+      ))}
+      
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -420,7 +478,33 @@ export default function DashboardPage() {
           <h1 className="text-2xl md:text-3xl font-extrabold">{t("dashboard.hello")}, <span className="text-primary">{clientName}</span></h1>
           <p className="text-muted text-sm mt-1">{t("dashboard.overview")}</p>
         </div>
-        <div className="chip">{t("dashboard.realTimeBalance")}</div>
+        <div className="flex items-center gap-3">
+          <a
+            href="/notifications"
+            className="relative p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition"
+            title="Notifications"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+              </span>
+            )}
+          </a>
+          <div className="chip">{t("dashboard.realTimeBalance")}</div>
+        </div>
       </div>
 
       {/* Top cards */}

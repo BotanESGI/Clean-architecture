@@ -175,6 +175,7 @@ export function usePrivateMessageSocket({
 
 
     newSocket.on("notification", async (data: { title: string; message: string }) => {
+      // Afficher une notification système si la permission est accordée
       if ("Notification" in window && Notification.permission === "granted") {
         const notification = new Notification(data.title, {
           body: data.message,
@@ -187,6 +188,12 @@ export function usePrivateMessageSocket({
           notification.close();
         };
       }
+
+      // Émettre un événement personnalisé pour que les composants React puissent l'écouter
+      const event = new CustomEvent("notification_received", {
+        detail: { title: data.title, message: data.message },
+      });
+      window.dispatchEvent(event);
     });
 
     newSocket.on("conversation_transferred", (data: { newAdvisorId: string }) => {

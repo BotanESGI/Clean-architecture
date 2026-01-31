@@ -1,8 +1,12 @@
 import { ClientRepository } from "../repositories/ClientRepository";
+import { NotificationRepository } from "../repositories/NotificationRepository";
+import { Notification } from "../../domain/entities/Notification";
+import crypto from "crypto";
 
 export class SendNotification {
   constructor(
     private readonly clientRepo: ClientRepository,
+    private readonly notificationRepo: NotificationRepository,
     private readonly onNotificationSent: (clientId: string, title: string, message: string) => void
   ) {}
 
@@ -36,6 +40,19 @@ export class SendNotification {
     if (!message || message.trim().length === 0) {
       throw new Error("Le message ne peut pas être vide");
     }
+
+    // Créer et sauvegarder la notification
+    const notification = new Notification(
+      crypto.randomUUID(),
+      receiverId,
+      senderId,
+      title.trim(),
+      message.trim(),
+      false,
+      new Date()
+    );
+
+    await this.notificationRepo.save(notification);
 
     // Notifier via le callback (qui sera connecté au WebSocket)
     this.onNotificationSent(receiverId, title.trim(), message.trim());

@@ -10,6 +10,7 @@ import { ClientRepository } from '../../../application/repositories/ClientReposi
 export class NotificationModule {
   static forRoot(
     clientRepo: ClientRepository,
+    notificationRepo: any,
     callback: (clientId: string, title: string, message: string) => void
   ): DynamicModule {
     return {
@@ -21,7 +22,7 @@ export class NotificationModule {
           provide: 'SendNotification',
           useFactory: () => {
             // On crée le use case avec les dépendances passées depuis Express
-            return new SendNotification(clientRepo, callback);
+            return new SendNotification(clientRepo, notificationRepo, callback);
           },
         },
       ],

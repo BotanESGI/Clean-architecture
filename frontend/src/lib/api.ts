@@ -185,6 +185,22 @@ export const api = {
     // Activités (actualités de la banque)
     createActivity: (payload: { title: string; content: string }, token: string) =>
       request<{ message: string; activity: { id: string; title: string; content: string; authorId: string; createdAt: string } }>("/advisor/activities", "POST", payload, token),
+    
+    // Notifications
+    sendNotification: (payload: { receiverId: string; title: string; message: string }, token: string) =>
+      request<{ message: string }>("/advisor/notifications", "POST", payload, token),
+  },
+
+  // Client Notifications APIs
+  notifications: {
+    list: (token: string) =>
+      request<{ notifications: Array<{ id: string; receiverId: string; senderId: string; title: string; message: string; isRead: boolean; createdAt: string }> }>("/notifications", "GET", undefined, token),
+    
+    markAsRead: (notificationId: string, token: string) =>
+      request<{ message: string }>(`/notifications/${notificationId}/read`, "POST", undefined, token),
+    
+    getUnreadCount: (token: string) =>
+      request<{ count: number }>("/notifications/unread-count", "GET", undefined, token),
   },
 
   // Activités (consultables par les clients)

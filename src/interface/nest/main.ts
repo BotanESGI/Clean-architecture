@@ -54,6 +54,7 @@ import { RecordCreditPayment } from "../../application/use-cases/RecordCreditPay
 import { CreditController } from "../controllers/CreditController";
 import { requireDirector } from "../middlewares/requireDirector";
 import { requireAdvisor } from "../middlewares/requireAdvisor";
+import { requireClient } from "../middlewares/requireClient";
 import { seedDirector } from "../../infrastructure/seeds/createDirector";
 import { seedAdvisor } from "../../infrastructure/seeds/createAdvisor";
 import { MySQLPrivateMessageRepository } from "../../infrastructure/adapters/mysql/MySQLPrivateMessageRepository";
@@ -66,7 +67,11 @@ import { PrivateMessageSocket } from "../../infrastructure/websocket/PrivateMess
 import { GroupMessageSocket } from "../../infrastructure/websocket/GroupMessageSocket";
 import { SendNotification } from "../../application/use-cases/SendNotification";
 import { MySQLGroupMessageRepository } from "../../infrastructure/adapters/mysql/MySQLGroupMessageRepository";
+import { MySQLNotificationRepository } from "../../infrastructure/adapters/mysql/MySQLNotificationRepository";
 import { SendGroupMessage } from "../../application/use-cases/SendGroupMessage";
+import { ListNotifications } from "../../application/use-cases/ListNotifications";
+import { MarkNotificationAsRead } from "../../application/use-cases/MarkNotificationAsRead";
+import { GetUnreadNotificationCount } from "../../application/use-cases/GetUnreadNotificationCount";
 import { ListGroupMessages } from "../../application/use-cases/ListGroupMessages";
 import { GroupMessageController } from "../controllers/GroupMessageController";
 import { CreateActivity } from "../../application/use-cases/CreateActivity";
@@ -104,6 +109,7 @@ async function startServer() {
   const creditRepository = new MySQLCreditRepository(AppDataSource);
   const privateMessageRepository = new MySQLPrivateMessageRepository(AppDataSource);
   const groupMessageRepository = new MySQLGroupMessageRepository(AppDataSource);
+  const notificationRepository = new MySQLNotificationRepository(AppDataSource);
   const conversationRepository = new MySQLConversationRepository(AppDataSource);
   const activityRepository = new MySQLActivityRepository(AppDataSource);
   const emailService = new RealEmailService();
@@ -315,12 +321,22 @@ async function startServer() {
 
   const sendNotification = new SendNotification(
     clientRepository,
+    notificationRepository,
     sendNotificationCallback
   );
 
+  const listNotifications = new ListNotifications(notificationRepository);
+  const markNotificationAsRead = new MarkNotificationAsRead(notificationRepository);
+  const getUnreadNotificationCount = new GetUnreadNotificationCount(notificationRepository);
+
   // --- Controller (Notifications) Express ---
   const { NotificationController } = await import("../controllers/NotificationController");
-  const notificationController = new NotificationController(sendNotification);
+  const notificationController = new NotificationController(
+    sendNotification,
+    listNotifications,
+    markNotificationAsRead,
+    getUnreadNotificationCount
+  );
 
   // Allow cross-origin requests from dev frontends (Next.js dev servers)
   const FRONT_ORIGINS = (process.env.FRONT_ORIGIN || "http://localhost:3000,http://localhost:3001")
@@ -456,6 +472,11 @@ async function startServer() {
     }
   });
   app.post("/advisor/notifications", requireAdvisor, notificationController.send);
+  
+  // --- Routes Notifications Client ---
+  app.get("/notifications", requireClient, notificationController.list);
+  app.post("/notifications/:id/read", requireClient, notificationController.markAsRead);
+  app.get("/notifications/unread-count", requireClient, notificationController.unreadCount);
 
   // --- Routes Activités (Feed) ---
   app.get("/activities", activityController.list);
@@ -537,7 +558,7 @@ async function startServer() {
   
   // Créer l'app NestJS en utilisant l'adaptateur Express pour partager le même serveur
   const nestApp = await NestFactory.create(
-    NotificationModule.forRoot(clientRepository, sendNotificationCallback),
+    NotificationModule.forRoot(clientRepository, notificationRepository, sendNotificationCallback),
     new ExpressAdapter(app),
     { logger: false }
   );

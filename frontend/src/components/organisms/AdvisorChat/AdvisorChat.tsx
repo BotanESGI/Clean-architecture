@@ -6,6 +6,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useToast } from "../../../contexts/ToastContext";
 import api from "../../../lib/api";
 import { useRouter } from "next/navigation";
+import { SendNotificationModal } from "../../molecules/SendNotificationModal/SendNotificationModal";
 
 interface AdvisorChatProps {
   advisorId: string;
@@ -30,6 +31,7 @@ export function AdvisorChat({ advisorId, clientId, clientName, isAssignedToMe = 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [selectedAdvisorId, setSelectedAdvisorId] = useState("");
   const [transferring, setTransferring] = useState(false);
@@ -132,13 +134,25 @@ export function AdvisorChat({ advisorId, clientId, clientName, isAssignedToMe = 
           </div>
           <div className="flex items-center gap-3">
             {isAssignedToMe && (
-              <button
-                onClick={() => setShowTransferModal(true)}
-                className="text-xs bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg px-3 py-1.5 transition"
-                title="Transférer la conversation à un autre conseiller"
-              >
-                Transférer
-              </button>
+              <>
+                <button
+                  onClick={() => setShowNotificationModal(true)}
+                  className="text-xs bg-primary/20 hover:bg-primary/30 border border-primary/40 rounded-lg px-3 py-1.5 transition flex items-center gap-1.5"
+                  title="Envoyer une notification à ce client"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Notification
+                </button>
+                <button
+                  onClick={() => setShowTransferModal(true)}
+                  className="text-xs bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg px-3 py-1.5 transition"
+                  title="Transférer la conversation à un autre conseiller"
+                >
+                  Transférer
+                </button>
+              </>
             )}
             <div className="flex items-center gap-2">
               <div
@@ -275,6 +289,17 @@ export function AdvisorChat({ advisorId, clientId, clientName, isAssignedToMe = 
           </div>
         </div>
       )}
+
+      {/* Modal de notification */}
+      <SendNotificationModal
+        clientId={clientId}
+        clientName={clientName}
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        onSent={() => {
+          // Optionnel: recharger ou mettre à jour l'interface
+        }}
+      />
     </div>
   );
 }
